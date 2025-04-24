@@ -1,0 +1,1874 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Contratos</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Añadir Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Agregar Microsoft Graph SDK -->
+    <script src="https://alcdn.msauth.net/browser/2.0.0/js/msal-browser.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@microsoft/microsoft-graph-client/lib/graph-js-sdk.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .dashboard {
+            display: none;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+        
+        h1, h2 {
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input[type="text"], 
+        input[type="password"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+        }
+        
+        .pdf-viewer {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        
+        .pdf-container {
+            width: 100%;
+            height: 500px;
+            overflow: auto;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+        }
+        
+        .canvas-container {
+            display: none;
+        }
+
+        .signature-container {
+            background-color: #f8f8f8;
+            padding: 20px;
+            border: 1px solid #ddd;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .signature-preview {
+            max-width: 400px;
+            max-height: 200px;
+            margin: 10px auto;
+            border: 1px solid #ddd;
+            display: none;
+        }
+
+        .signature-input {
+            display: none;
+        }
+
+        .signature-buttons {
+            margin-top: 10px;
+        }
+
+        .signature-placeholder {
+            width: 400px;
+            height: 200px;
+            border: 2px dashed #ccc;
+            margin: 10px auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            cursor: pointer;
+        }
+
+        .signature-placeholder:hover {
+            border-color: #4CAF50;
+            color: #4CAF50;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .user-info {
+            font-weight: bold;
+        }
+        
+        .logout-btn {
+            background-color: #f44336;
+        }
+        
+        .logout-btn:hover {
+            background-color: #d32f2f;
+        }
+        
+        .tab-buttons {
+            margin-bottom: 20px;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .pdf-section {
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .section-header {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .toggle-btn {
+            width: 100%;
+            text-align: left;
+            padding: 10px;
+            background: none;
+            border: none;
+            color: #333;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .toggle-btn:hover {
+            background-color: #e9e9e9;
+        }
+        
+        .toggle-btn.expanded {
+            background-color: #e9e9e9;
+        }
+        
+        .pdf-content {
+            padding: 15px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            background-color: white;
+        }
+        
+        .pdf-thumbnail {
+            display: inline-block;
+            text-align: center;
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            transition: transform 0.2s;
+        }
+        
+        .pdf-thumbnail:hover {
+            transform: translateY(-2px);
+            background: #f0f0f0;
+        }
+        
+        .pdf-thumbnail img {
+            width: 100px;
+            height: 140px;
+            object-fit: cover;
+            border: 1px solid #ddd;
+            cursor: pointer;
+        }
+        
+        .pdf-thumbnail div {
+            margin-top: 8px;
+            font-size: 12px;
+            color: #666;
+            word-break: break-word;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .pdf-search-container {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .pdf-search-input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .pdf-search-btn {
+            padding: 8px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .pdf-search-btn:hover {
+            background-color: #45a049;
+        }
+
+        .comparison-container {
+        display: flex;
+        gap: 20px;
+        flex-wrap: wrap; /* Permitir que las secciones se apilen en pantallas pequeñas */
+        }
+        
+        .comparison-container > div {
+            flex: 1;
+            min-width: 300px; /* Asegurar un ancho mínimo para la legibilidad */
+        }
+        
+        .pdf-container, .pdf-viewer, .canvas-container {
+            max-height: 500px;
+            overflow-y: auto; /* Habilitar desplazamiento para contenido extenso */
+        }
+
+        #excel-row-viewer, #confirmador-row-viewer {
+        max-height: 300px; /* Limitar la altura del visor de filas */
+        overflow-y: auto; /* Habilitar desplazamiento si el contenido es extenso */
+        }
+        
+        .pdf-container {
+            max-height: 400px; /* Asegurar que el visor de PDF tenga espacio suficiente */
+            overflow-y: auto;
+        }
+        
+        .comparison-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            max-height: 80vh; /* Limitar la altura total para que quepa en la pantalla */
+            overflow-y: auto;
+        }
+        
+        .comparison-container > div {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .validation-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .validation-btn:hover {
+            background-color: #45a049;
+        }
+
+        .estado-select {
+            background-color: #fff;
+            font-size: 14px;
+        }
+        
+        .estado-select option {
+            padding: 10px;
+        }
+        
+        .estado-select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        
+        /* Colores según el estado */
+        .estado-select[value="SIN REVISION"] {
+            background-color: #ffebee;
+        }
+        
+        .estado-select[value="PENDIENTE"] {
+            background-color: #fff3e0;
+        }
+        
+        .estado-select[value="REVISADO"] {
+            background-color: #e8f5e9;
+        }
+        
+        .estado-select[value="AUTORIZADO"] {
+            background-color: #e3f2fd;
+        }
+
+        .user-status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            margin-left: 10px;
+            font-size: 0.9em;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .status-online {
+            background-color: #4caf50;
+        }
+
+        .status-offline {
+            background-color: #f44336;
+        }
+
+        .real-time-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px;
+            background-color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .editing-indicator {
+            font-style: italic;
+            color: #666;
+            margin-left: 10px;
+        }
+
+        .confirmador-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr 400px;
+            gap: 20px;
+            padding: 20px;
+            height: calc(100vh - 100px);
+        }
+
+        .empleados-section {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+
+        .empleado-card {
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .empleado-card:hover {
+            background-color: #f5f5f5;
+        }
+
+        .empleado-card.selected {
+            background-color: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .empleado-details {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+
+        .estado-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+
+        .documentos-section {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pdf-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .pdf-viewer {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 80%;
+            height: 80%;
+            background: white;
+            z-index: 1000;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .pdf-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .firma-section {
+            padding: 15px;
+            text-align: center;
+            border-top: 1px solid #ddd;
+        }
+
+        .firma-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .firma-btn:hover {
+            background-color: #45a049;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .search-bar input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .search-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .search-btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="login-container" id="login-form">
+            <h1>Sistema de Gestión de Contratos</h1>
+            <div class="form-group">
+                <label for="username">Usuario:</label>
+                <input type="text" id="username" name="username">
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña:</label>
+                <input type="password" id="password" name="password">
+            </div>
+            <button onclick="login()">Iniciar Sesión</button>
+            <p id="login-error" style="color: red; display: none;">Usuario o contraseña incorrectos</p>
+        </div>
+        
+        <!-- Dashboard para el usuario Revisor (RH) -->
+        <!-- Panel de Revisor -->
+        <div class="dashboard" id="revisor-dashboard">
+            <div class="header">
+                <h1>Panel de Control - Revisor RH</h1>
+                <div>
+                    <span class="user-info">Hola Alejandra</span>
+                    <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
+                </div>
+            </div>
+            
+            <div class="tab-buttons">
+                <button onclick="showTab('comparison-tab')">Espacio de Comparación</button>
+            </div>
+            
+            <div id="comparison-tab" class="tab-content active">
+                <h2>Espacio de Comparación</h2>
+                <div style="display: flex; gap: 20px;">
+                    <!-- Sección de Excel -->
+                    <div style="flex: 1;">
+                        <h3>Datos de Excel</h3>
+                        <div class="form-group">
+                            <label for="excel-file">Cargar Archivo Excel:</label>
+                            <input type="file" id="excel-file" accept=".xlsx, .xls">
+                            <button onclick="loadExcel()">Cargar</button>
+                        </div>
+                        <div id="excel-data" style="margin-top: 20px; display: none;">
+                            <div style="margin-bottom: 10px;">
+                                <input type="text" id="search-input" placeholder="Buscar..." style="width: 300px;">
+                                <button onclick="searchRows()">Buscar</button>
+                            </div>
+                            <div id="excel-row-viewer" style="border: 1px solid #ddd; padding: 15px; border-radius: 4px;">
+                                <h4>Fila <span id="current-row-index">1</span> de <span id="total-rows">0</span></h4>
+                                <div id="excel-row-content"></div>
+                                <div style="margin-top: 10px;">
+                                    <button onclick="prevRow()" id="prev-row-btn" disabled>Anterior</button>
+                                    <button onclick="nextRow()" id="next-row-btn">Siguiente</button>
+                                </div>
+                            </div>
+                            <button onclick="saveChanges()">Guardar Cambios</button>
+                            <button onclick="downloadExcel()">Descargar Excel Actualizado</button>
+                        </div>
+                    </div>
+                    <!-- Sección de PDF -->
+                    <div style="flex: 1;">
+                        <h3>Documentos PDF</h3>
+                        <div class="form-group">
+                            <label for="pdf-file">Cargar PDF:</label>
+                            <input type="file" id="pdf-file" accept=".pdf" multiple>
+                            <button onclick="loadPDFs()">Cargar</button>
+                        </div>
+                        <div id="pdf-list" class="pdf-section">
+                            <div class="section-header">
+                                <button onclick="togglePDFList()" class="toggle-btn">
+                                    PDFs Cargados (<span id="pdf-count">0</span>)
+                                </button>
+                            </div>
+                            <div class="pdf-search-container">
+                                <input type="text" id="pdf-search-input" class="pdf-search-input" placeholder="Buscar PDF por nombre...">
+                                <button onclick="searchPDFs()" class="pdf-search-btn">Buscar</button>
+                            </div>
+                            <div id="pdf-list-content" class="pdf-content"></div>
+                        </div>
+                        <div class="pdf-viewer" id="pdf-viewer" style="display: none;">
+                            <h3 id="current-pdf-name"></h3>
+                            <div class="pdf-container" id="pdf-container"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Panel de Confirmador: Espacio de Comparación -->
+            <div id="confirmar-comparison-tab" class="tab-content">
+                <h2>Espacio de Comparación</h2>
+                <div style="display: flex; gap: 20px;">
+                    <!-- Sección de Excel -->
+                    <div style="flex: 1;">
+                        <h3>Revisión de Datos</h3>
+                        <div id="confirmador-excel-data" style="margin-top: 20px;">
+                            <div style="margin-bottom: 10px;">
+                                <input type="text" id="confirmador-search-input" placeholder="Buscar..." style="width: 300px;">
+                                <button onclick="searchConfirmadorRows()">Buscar</button>
+                            </div>
+                            <div id="confirmador-row-viewer" style="border: 1px solid #ddd; padding: 15px; border-radius: 4px;">
+                                <h4>Fila <span id="confirmador-current-row-index">1</span> de <span id="confirmador-total-rows">0</span></h4>
+                                <div id="confirmador-row-content"></div>
+                                <div style="margin-top: 10px;">
+                                    <button onclick="prevConfirmadorRow()" id="confirmador-prev-row-btn" disabled>Anterior</button>
+                                    <button onclick="nextConfirmadorRow()" id="confirmador-next-row-btn">Siguiente</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Sección de PDF -->
+                    <div style="flex: 1;">
+                        <h3>Firmar Documentos PDF</h3>
+                        <div id="confirmador-pdf-list" class="pdf-section">
+                            <div class="section-header">
+                                <button onclick="toggleConfirmadorPDFList()" class="toggle-btn">
+                                    PDFs Cargados (<span id="confirmador-pdf-count">0</span>)
+                                </button>
+                            </div>
+                            <div class="pdf-search-container">
+                                <input type="text" class="pdf-search-input confirmador-pdf-search" placeholder="Buscar PDF por nombre...">
+                                <button onclick="searchConfirmadorPDFs(this)" class="pdf-search-btn">Buscar</button>
+                            </div>
+                            <div id="confirmador-pdf-list-content" class="pdf-content"></div>
+                        </div>
+                        <div class="pdf-viewer" id="confirmador-pdf-viewer" style="display: none;">
+                            <h3 id="confirmador-current-pdf-name"></h3>
+                            <div class="pdf-container" id="confirmador-pdf-container">
+                                <div class="signature-container">
+                                <h3>Firma Digital</h3>
+                                    <input type="file" id="signature-input" class="signature-input" accept="image/*">
+                                    <div id="signature-placeholder" class="signature-placeholder">
+                                        Haga clic aquí para cargar su firma
+                                    </div>
+                                    <img id="signature-preview" class="signature-preview" alt="Vista previa de la firma">
+                                    <div class="signature-buttons">
+                                    <button onclick="clearSignature()">Limpiar</button>
+                                    <button onclick="saveSignature()">Guardar Firma</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="margin-top: 20px;">
+                                <button onclick="firmarPDF()" id="download-signed-pdf" style="display: none;">Descargar PDF Firmado</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard para el usuario Confirmador -->
+        <div class="dashboard" id="confirmador-dashboard">
+            <div class="header">
+                <h1>Panel de Control - Directora RH</h1>
+                <div>
+                    <span class="user-info">Hola Andrea Amado</span>
+                    <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
+                </div>
+            </div>
+            
+            <div id="confirmador-content" style="display: grid; grid-template-columns: 250px 1fr 400px; gap: 20px; height: calc(100vh - 100px);">
+                <!-- Lista de Empleados -->
+                <div style="background: white; padding: 15px; border-radius: 8px; overflow-y: auto;">
+                    <h2>Lista de Empleados</h2>
+                    <div class="search-bar">
+                        <input type="text" id="confirmador-search-input" placeholder="Buscar empleado...">
+                        <button onclick="searchConfirmadorRows()" class="search-btn">Buscar</button>
+                    </div>
+                    <div id="empleados-list" style="margin-top: 15px;">
+                        <!-- Los empleados se cargarán aquí dinámicamente -->
+                    </div>
+            </div>
+            
+                <!-- Detalles del Empleado -->
+                <div style="background: white; padding: 20px; border-radius: 8px; overflow-y: auto;">
+                    <h2>Detalles del Empleado</h2>
+                    <div id="empleado-info">
+                                <div id="confirmador-row-content"></div>
+                        <div class="estado-section">
+                            <label for="estado-select">Estado:</label>
+                            <select id="estado-select" class="estado-select" onchange="updateEstado(this.value)">
+                                <option value="SIN REVISION">SIN REVISIÓN</option>
+                                <option value="PENDIENTE">PENDIENTE</option>
+                                <option value="REVISADO">REVISADO</option>
+                                <option value="AUTORIZADO">AUTORIZADO</option>
+                            </select>
+                                </div>
+                            </div>
+                        </div>
+
+                <!-- Documentos PDF - Ahora fijo en el lado derecho -->
+                <div style="background: white; padding: 15px; border-radius: 8px; display: flex; flex-direction: column;">
+                    <h2>Documentos PDF</h2>
+                    <div id="confirmador-pdf-list" style="flex: 1; overflow-y: auto;">
+                        <div id="confirmador-pdf-list-content" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 15px;"></div>
+                    </div>
+                    <div id="confirmador-pdf-viewer" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80%; height: 80%; background: white; z-index: 1000; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+                        <div style="padding: 15px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center;">
+                            <h3 id="confirmador-current-pdf-name"></h3>
+                            <button onclick="closeConfirmadorPDF()" style="background: none; border: none; font-size: 24px; cursor: pointer;">×</button>
+                                </div>
+                        <div id="confirmador-pdf-container" style="height: calc(100% - 120px); padding: 15px;"></div>
+                        <div style="padding: 15px; border-top: 1px solid #ddd; text-align: center;">
+                            <button id="firmar-btn" onclick="mostrarFirma()" class="firma-btn">Firmar Documento</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Supabase configuration
+        const SUPABASE_URL = 'https://ixhsjtsilnfhuzgvkyve.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4aHNqdHNpbG5maHV6Z3ZreXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU1MDA1NDYsImV4cCI6MjA2MTA3NjU0Nn0.pCrpF73wECI12ti_Vcew5q4a_WvSvsifiSQ-psolAv4';
+        
+        // Initialize Supabase client
+        let supabase;
+        try {
+            supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('Supabase initialized successfully');
+        } catch (error) {
+            console.error('Error initializing Supabase:', error);
+        }
+
+        // Variables globales para datos compartidos
+        let sharedData = {
+            excelData: null,
+            currentRowIndex: 1,
+            filteredRows: [],
+            savedChanges: false,
+            pdfs: {}
+        };
+
+        // Variables globales
+        let currentUser = null;
+        let workbook = null;
+        let currentPDF = null;
+        let signatureData = null;
+        let signedPDFs = {};
+        let activeUsers = new Set();
+        let currentEditingUsers = {};
+        let currentUserSession = null;
+
+        // Configuración de usuarios
+        const users = {
+            "RH": {
+                password: "mr2025",
+                role: "revisor"
+            },
+            "DirectoraRH": {
+                password: "mr2025",
+                role: "confirmador"
+            }
+        };
+        
+        // Configuración de Microsoft Graph
+        const graphConfig = {
+            clientId: process.env.AZURE_CLIENT_ID,
+            clientSecret: process.env.AZURE_CLIENT_SECRET,
+            tenantId: process.env.AZURE_TENANT_ID,
+            scope: 'https://graph.microsoft.com/.default'
+        };
+
+        let graphClient = null;
+
+        // Función para obtener token de acceso
+        async function getAccessToken() {
+            const tokenEndpoint = `https://login.microsoftonline.com/${graphConfig.tenantId}/oauth2/v2.0/token`;
+            const body = new URLSearchParams({
+                client_id: graphConfig.clientId,
+                client_secret: graphConfig.clientSecret,
+                scope: graphConfig.scope,
+                grant_type: 'client_credentials'
+            });
+
+            try {
+                const response = await fetch(tokenEndpoint, {
+                    method: 'POST',
+                    body: body,
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    }
+                });
+
+                const data = await response.json();
+                return data.access_token;
+            } catch (error) {
+                console.error('Error al obtener token:', error);
+                return null;
+            }
+        }
+
+        // Función para inicializar Microsoft Graph
+        async function initializeOneDrive() {
+            try {
+                const accessToken = await getAccessToken();
+                if (!accessToken) {
+                    throw new Error('No se pudo obtener el token de acceso');
+                }
+
+                graphClient = MicrosoftGraph.Client.init({
+                    authProvider: (done) => {
+                        done(null, accessToken);
+                    }
+                });
+
+                console.log('OneDrive inicializado correctamente');
+            } catch (error) {
+                console.error('Error al inicializar OneDrive:', error);
+            }
+        }
+
+        // Función para guardar Excel en OneDrive
+        async function saveExcelToOneDrive(excelData) {
+            if (!graphClient) {
+                await initializeOneDrive();
+            }
+
+            try {
+                // Convertir datos a Excel
+                const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet(excelData);
+                XLSX.utils.book_append_sheet(wb, ws, "Empleados");
+                const excelBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+
+                // Nombre fijo del archivo
+                const fileName = 'Contratos_Empleados.xlsx';
+
+                // Subir a OneDrive
+                await graphClient
+                    .api(`/me/drive/root:/MR_INGENIEROS/${fileName}:/content`)
+                    .put(excelBuffer);
+
+                console.log('Excel actualizado en OneDrive');
+                return true;
+            } catch (error) {
+                console.error('Error al guardar en OneDrive:', error);
+                return false;
+            }
+        }
+
+        // Función para cargar Excel desde OneDrive
+        async function loadExcelFromOneDrive() {
+            if (!graphClient) {
+                await initializeOneDrive();
+            }
+
+            try {
+                const response = await graphClient
+                    .api('/me/drive/root:/MR_INGENIEROS/Contratos_Empleados.xlsx:/content')
+                    .get();
+
+                const data = await response.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                return XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            } catch (error) {
+                if (error.statusCode === 404) {
+                    console.log('Archivo no encontrado en OneDrive, se creará uno nuevo');
+                    return null;
+                }
+                console.error('Error al cargar desde OneDrive:', error);
+                return null;
+            }
+        }
+
+        // Modificar la función loadExcel
+        async function loadExcel() {
+            const fileInput = document.getElementById('excel-file');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Por favor seleccione un archivo Excel');
+                return;
+            }
+            
+            try {
+                const reader = new FileReader();
+                
+                reader.onload = async function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        workbook = XLSX.read(data, { type: 'array' });
+                        
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const newData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                        // Cargar datos existentes de OneDrive
+                        const existingData = await loadExcelFromOneDrive();
+                        
+                        if (existingData) {
+                            // Combinar datos existentes con nuevos (excluyendo encabezados duplicados)
+                            const headers = existingData[0];
+                            const newRows = newData.slice(1);
+                            sharedData.excelData = [...existingData, ...newRows];
+                        } else {
+                            sharedData.excelData = newData;
+                        }
+
+                        // Guardar datos combinados en OneDrive
+                        await saveExcelToOneDrive(sharedData.excelData);
+                        
+                        // Inicializar filteredRows
+                        sharedData.filteredRows = Array.from(
+                            { length: sharedData.excelData.length - 1 }, 
+                            (_, i) => i + 1
+                        );
+                        
+                        document.getElementById('excel-data').style.display = 'block';
+                        document.getElementById('total-rows').textContent = sharedData.filteredRows.length;
+                        
+                        sharedData.currentRowIndex = 1;
+                        displayExcelRow();
+                        
+                        await saveToSupabase();
+                        console.log('Excel actualizado en OneDrive y Supabase');
+                        
+                    } catch (error) {
+                        console.error('Error al procesar el Excel:', error);
+                        alert('Error al procesar el archivo Excel');
+                    }
+                };
+                
+                reader.readAsArrayBuffer(file);
+                
+            } catch (error) {
+                console.error('Error al cargar el Excel:', error);
+                alert('Error al cargar el archivo Excel');
+            }
+        }
+
+        // Modificar la función saveChanges
+        async function saveChanges() {
+            try {
+                // Guardar en OneDrive
+                await saveExcelToOneDrive(sharedData.excelData);
+                
+                // Guardar en Supabase
+                await saveToSupabase();
+                
+                alert('Cambios guardados correctamente.');
+            } catch (error) {
+                console.error('Error al guardar cambios:', error);
+                alert('Error al guardar los cambios. Por favor, intente nuevamente.');
+            }
+        }
+
+        // Función para guardar datos en Supabase
+        async function saveToSupabase() {
+            try {
+                // Convertir ArrayBuffer a Base64 para los PDFs
+                const pdfsToStore = {};
+                for (const filename in sharedData.pdfs) {
+                    const arrayBuffer = sharedData.pdfs[filename];
+                    const base64 = arrayBufferToBase64(arrayBuffer);
+                    pdfsToStore[filename] = base64;
+                }
+
+                const dataToStore = {
+                    ...sharedData,
+                    pdfs: pdfsToStore,
+                    last_updated: new Date().toISOString()
+                };
+
+                // Actualizar o insertar datos en Supabase
+                const { data, error } = await supabase
+                    .from('shared_data')
+                    .upsert([
+                        {
+                            id: 'current_data',
+                            data: dataToStore
+                        }
+                    ]);
+
+                if (error) throw error;
+                console.log('Datos guardados en Supabase');
+            } catch (error) {
+                console.error('Error al guardar en Supabase:', error);
+                throw error;
+            }
+        }
+
+        // Función para mostrar una fila en el visor del Confirmador
+        function displayConfirmadorRow() {
+            if (!sharedData.excelData || sharedData.excelData.length <= 1) {
+                const rowViewer = document.getElementById('confirmador-row-content');
+                if (rowViewer) {
+                    rowViewer.innerHTML = '<p>No hay datos disponibles</p>';
+                }
+                return;
+            }
+            
+            const rowViewer = document.getElementById('confirmador-row-content');
+            if (!rowViewer) return;
+            
+            const headers = sharedData.excelData[0];
+            const rowIndex = sharedData.filteredRows[sharedData.currentRowIndex - 1];
+            const rowData = sharedData.excelData[rowIndex] || [];
+            
+            rowViewer.innerHTML = '';
+            
+            headers.forEach((header, index) => {
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                
+                if (header === 'ESTADO' || index === 45) {
+                    const estadoOptions = ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO'];
+                    const currentValue = rowData[index] || 'SIN REVISION';
+                    
+                    div.innerHTML = `
+                        <label>${header}</label>
+                        <select class="estado-select" data-row="${rowIndex}" data-col="${index}">
+                            ${estadoOptions.map(option => 
+                                `<option value="${option}" ${currentValue === option ? 'selected' : ''}>${option}</option>`
+                            ).join('')}
+                        </select>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <label>${header}</label>
+                        <input type="text" value="${rowData[index] || ''}" readonly>
+                    `;
+                }
+                rowViewer.appendChild(div);
+            });
+            
+            // Actualizar navegación
+            document.getElementById('confirmador-current-row-index').textContent = sharedData.currentRowIndex;
+            document.getElementById('confirmador-total-rows').textContent = sharedData.filteredRows.length;
+            document.getElementById('confirmador-prev-row-btn').disabled = sharedData.currentRowIndex === 1;
+            document.getElementById('confirmador-next-row-btn').disabled = sharedData.currentRowIndex === sharedData.filteredRows.length;
+        }
+
+        // Función para formatear fechas
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            
+            try {
+                // Si es una fecha en formato YYYY-MM-DD (desde input type="date")
+                if (dateString.includes('-')) {
+                    const [year, month, day] = dateString.split('-');
+                    return `${day}/${month}/${year}`;
+                }
+                
+                // Si es un número (fecha de Excel)
+                if (!isNaN(dateString)) {
+                    const date = new Date((dateString - 25569) * 86400 * 1000);
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    const year = date.getFullYear();
+                    return `${day}/${month}/${year}`;
+                }
+                
+                return dateString;
+            } catch (error) {
+                console.error('Error al formatear fecha:', error);
+                return dateString;
+            }
+        }
+        
+        // Función para alternar la visibilidad de la lista de PDFs (Revisor)
+        function togglePDFList() {
+            const content = document.getElementById('pdf-list-content');
+            const button = document.querySelector('#pdf-list button');
+            const isHidden = content.style.display === 'none';
+            
+            content.style.display = isHidden ? 'block' : 'none';
+            button.classList.toggle('expanded', isHidden);
+        }
+
+        // Función para alternar la visibilidad de la lista de PDFs (Confirmador)
+        function toggleConfirmadorPDFList() {
+            const content = document.getElementById('confirmador-pdf-list-content');
+            const button = document.querySelector('#confirmador-pdf-list button');
+            const isHidden = content.style.display === 'none';
+            
+            content.style.display = isHidden ? 'block' : 'none';
+            button.classList.toggle('expanded', isHidden);
+        }
+        // Función para cargar PDFs
+        function loadPDFs() {
+            const fileInput = document.getElementById('pdf-file');
+            const files = fileInput.files;
+            
+            if (files.length === 0) {
+                alert('Por favor seleccione al menos un archivo PDF');
+                return;
+            }
+            
+            // Limpiar la lista de PDFs anterior
+            const pdfListContent = document.getElementById('pdf-list-content');
+            pdfListContent.innerHTML = '';
+            
+            // Actualizar el contador
+            document.getElementById('pdf-count').textContent = files.length;
+            
+            // Cargar cada PDF
+            let loadedCount = 0;
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const reader = new FileReader();
+                
+                reader.onload = (function(file) {
+                    return function(e) {
+                        const pdfData = e.target.result;
+                        sharedData.pdfs[file.name] = pdfData;
+                        
+                        // Crear miniatura
+                        const thumbnail = document.createElement('div');
+                        thumbnail.className = 'pdf-thumbnail';
+                        thumbnail.innerHTML = `
+                            <div style="width: 100px; height: 140px; background-color: #f5f5f5; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 40px; color: #666;">📄</div>
+                                    <div style="font-size: 12px; color: #666;">PDF</div>
+                                </div>
+                            </div>
+                            <div>${file.name}</div>
+                        `;
+                        thumbnail.onclick = function() {
+                            displayPDF(file.name);
+                        };
+                        
+                        pdfListContent.appendChild(thumbnail);
+                        
+                        // Incrementar contador y guardar cuando todos los PDFs estén cargados
+                        loadedCount++;
+                        if (loadedCount === files.length) {
+                            saveToSupabase();
+                            console.log('PDFs guardados en Supabase');
+                            // Actualizar vista del confirmador si está visible
+                            const confirmadorDashboard = document.getElementById('confirmador-dashboard');
+                            if (confirmadorDashboard && confirmadorDashboard.style.display === 'block') {
+                                loadConfirmadorData();
+                            }
+                        }
+                    };
+                })(file);
+                
+                reader.readAsArrayBuffer(file);
+            }
+        }
+        
+        // Función para mostrar un PDF
+        function displayPDF(filename) {
+            const pdfData = sharedData.pdfs[filename];  // Usar sharedData.pdfs
+            currentPDF = filename;
+            
+            document.getElementById('pdf-viewer').style.display = 'block';
+            document.getElementById('current-pdf-name').textContent = filename;
+            
+            const container = document.getElementById('pdf-container');
+            container.innerHTML = '';
+            
+            const pdfBlob = new Blob([pdfData], {type: 'application/pdf'});
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            
+            const iframe = document.createElement('iframe');
+            iframe.src = pdfUrl;
+            iframe.width = '100%';
+            iframe.height = '100%';
+            iframe.style.border = 'none';
+            
+            container.appendChild(iframe);
+        }
+        
+        // Función para buscar PDFs (Revisor)
+        function searchPDFs() {
+            const searchTerm = document.getElementById('pdf-search-input').value.toLowerCase();
+            const thumbnails = document.querySelectorAll('#pdf-list-content .pdf-thumbnail');
+            
+            thumbnails.forEach(thumbnail => {
+                const pdfName = thumbnail.querySelector('div:last-child').textContent.toLowerCase();
+                thumbnail.style.display = pdfName.includes(searchTerm) ? 'block' : 'none';
+            });
+        }
+
+        // Función para buscar PDFs (Confirmador)
+        function searchConfirmadorPDFs(button) {
+            const searchContainer = button.closest('.pdf-search-container');
+            const searchTerm = searchContainer.querySelector('.confirmador-pdf-search').value.toLowerCase();
+            const pdfListContent = searchContainer.closest('.pdf-section').querySelector('.pdf-content');
+            const thumbnails = pdfListContent.querySelectorAll('.pdf-thumbnail');
+            
+            thumbnails.forEach(thumbnail => {
+                const pdfName = thumbnail.querySelector('div:last-child').textContent.toLowerCase();
+                thumbnail.style.display = pdfName.includes(searchTerm) ? 'block' : 'none';
+            });
+        }
+
+        // Función para mostrar una fila del Excel
+        function displayExcelRow() {
+            if (!sharedData.excelData || sharedData.excelData.length <= 1) {
+                document.getElementById('excel-row-content').innerHTML = '<p>No hay datos disponibles</p>';
+                return;
+            }
+            
+            const headers = sharedData.excelData[0];
+            const rowIndex = sharedData.filteredRows[sharedData.currentRowIndex - 1];
+            const rowData = sharedData.excelData[rowIndex] || [];
+            
+            const rowContent = document.getElementById('excel-row-content');
+            rowContent.innerHTML = '';
+            
+            headers.forEach((header, index) => {
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                
+                const isDate = header.toLowerCase().includes('fecha');
+                const inputType = isDate ? 'date' : 'text';
+                let value = rowData[index] || '';
+                
+                if (isDate && value) {
+                    // Convertir fecha de Excel a formato YYYY-MM-DD
+                    try {
+                        const dateObj = new Date((value - 25569) * 86400 * 1000);
+                        value = dateObj.toISOString().split('T')[0];
+                    } catch (e) {
+                        console.error('Error al convertir fecha:', e);
+                    }
+                }
+                
+                div.innerHTML = `
+                    <label>${header}</label>
+                    <input type="${inputType}" 
+                           value="${value}"
+                           data-row="${rowIndex}"
+                           data-col="${index}"
+                           data-is-date="${isDate}">
+                `;
+                rowContent.appendChild(div);
+            });
+            
+            // Actualizar navegación
+            document.getElementById('current-row-index').textContent = sharedData.currentRowIndex;
+            document.getElementById('prev-row-btn').disabled = sharedData.currentRowIndex === 1;
+            document.getElementById('next-row-btn').disabled = sharedData.currentRowIndex === sharedData.filteredRows.length;
+        }
+
+        // Función para navegar a la fila anterior
+        function prevRow() {
+            if (sharedData.currentRowIndex > 1) {
+                sharedData.currentRowIndex--;
+                displayExcelRow();
+            }
+        }
+
+        // Función para navegar a la siguiente fila
+        function nextRow() {
+            if (sharedData.currentRowIndex < sharedData.filteredRows.length) {
+                sharedData.currentRowIndex++;
+                displayExcelRow();
+            }
+        }
+
+        // Función para buscar en las filas
+        function searchRows() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            sharedData.filteredRows = [];
+            
+            for (let i = 1; i < sharedData.excelData.length; i++) {
+                const row = sharedData.excelData[i];
+                if (row && row.some(cell => (cell || '').toString().toLowerCase().includes(searchTerm))) {
+                    sharedData.filteredRows.push(i);
+                }
+            }
+            
+            sharedData.currentRowIndex = sharedData.filteredRows.length > 0 ? 1 : 0;
+            displayExcelRow();
+            
+            document.getElementById('total-rows').textContent = sharedData.filteredRows.length;
+            
+            if (sharedData.filteredRows.length === 0) {
+                document.getElementById('excel-row-content').innerHTML = '<p>No se encontraron resultados</p>';
+            }
+        }
+
+        // Función para descargar el Excel actualizado
+        function downloadExcel() {
+            if (!workbook || !sharedData.excelData) {
+                alert('No hay datos para descargar');
+                return;
+            }
+            
+            try {
+                // Actualizar la hoja de trabajo con los datos modificados
+                const ws = XLSX.utils.aoa_to_sheet(sharedData.excelData);
+                workbook.Sheets[workbook.SheetNames[0]] = ws;
+                
+                // Generar el archivo
+                const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                
+                // Crear Blob y descargar
+                const blob = new Blob([wbout], { type: 'application/octet-stream' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'datos_actualizados.xlsx';
+                a.click();
+                
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Error al descargar el Excel:', error);
+                alert('Error al descargar el archivo Excel');
+            }
+        }
+
+        // Función para actualizar la lista de usuarios en línea
+        function updateOnlineUsers(state) {
+            const userList = Object.values(state).flat();
+            activeUsers = new Set(userList.map(u => u.user_id));
+            updateOnlineUsersDisplay();
+        }
+
+        // Función para actualizar el estado de un usuario
+        function updateUserStatus(userId, isOnline) {
+            if (isOnline) {
+                activeUsers.add(userId);
+                } else {
+                activeUsers.delete(userId);
+            }
+            updateOnlineUsersDisplay();
+        }
+
+        // Función para mostrar usuarios en línea
+        function updateOnlineUsersDisplay() {
+            const statusContainer = document.getElementById('online-users');
+            if (!statusContainer) return;
+
+            statusContainer.innerHTML = Array.from(activeUsers).map(userId => `
+                <div class="user-status">
+                    <span class="status-indicator status-online"></span>
+                    ${userId}
+                </div>
+            `).join('');
+        }
+
+        // Función para actualizar el estado de edición
+        function updateEditingStatus(payload) {
+            if (!payload || !payload.user || !payload.editing) return;
+
+            const { user, editing } = payload;
+            
+            if (editing) {
+                currentEditingUsers[user] = true;
+            } else {
+                delete currentEditingUsers[user];
+            }
+
+            updateEditingIndicator();
+        }
+
+        // Función para mostrar indicador de edición
+        function updateEditingIndicator() {
+            const indicator = document.createElement('div');
+            indicator.className = 'editing-indicator';
+            indicator.textContent = 'Edición en curso';
+            
+            document.body.appendChild(indicator);
+            
+            setTimeout(() => {
+                indicator.remove();
+            }, 3000);
+        }
+
+        // Función de inicio de sesión
+        async function login() {
+            try {
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const loginError = document.getElementById('login-error');
+                
+                if (!users[username]) {
+                    loginError.textContent = 'Usuario no encontrado';
+                    loginError.style.display = 'block';
+                    return;
+                }
+
+                if (users[username].password !== password) {
+                    loginError.textContent = 'Contraseña incorrecta';
+                    loginError.style.display = 'block';
+                    return;
+                }
+
+                currentUser = {
+                    username: username,
+                    role: users[username].role
+                };
+                
+                document.getElementById('login-form').style.display = 'none';
+                loginError.style.display = 'none';
+
+                if (currentUser.role === 'revisor') {
+                    document.getElementById('revisor-dashboard').style.display = 'block';
+                    showTab('comparison-tab');
+                } else if (currentUser.role === 'confirmador') {
+                    document.getElementById('confirmador-dashboard').style.display = 'block';
+                    await loadConfirmadorData();
+                    initRealtimeSubscription();
+                }
+
+            } catch (error) {
+                console.error('Error durante el inicio de sesión:', error);
+                const loginError = document.getElementById('login-error');
+                loginError.textContent = 'Error al iniciar sesión. Por favor, intente nuevamente.';
+                loginError.style.display = 'block';
+            }
+        }
+
+        // Función para cerrar sesión
+        async function logout() {
+            try {
+                if (currentUser && supabase) {
+                    try {
+                        await supabase.channel('online-users').unsubscribe();
+                        await supabase.channel('document-changes').unsubscribe();
+                    } catch (error) {
+                        console.error('Error al desconectar de Supabase:', error);
+                    }
+                }
+            } finally {
+                currentUser = null;
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('revisor-dashboard').style.display = 'none';
+                document.getElementById('confirmador-dashboard').style.display = 'none';
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+            }
+        }
+
+        // Función para mostrar pestañas
+        function showTab(tabId) {
+            console.log('Mostrando tab:', tabId);
+            const tabContents = document.getElementsByClassName('tab-content');
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove('active');
+                tabContents[i].style.display = 'none';
+            }
+            
+            const selectedTab = document.getElementById(tabId);
+            if (selectedTab) {
+                selectedTab.classList.add('active');
+                selectedTab.style.display = 'block';
+                
+                // Si es el tab del confirmador, cargar los datos
+                if (tabId === 'confirmar-comparison-tab') {
+                    loadConfirmadorData();
+                }
+            }
+        }
+
+        // Función para mostrar los empleados en la lista
+        function displayEmpleadosList() {
+            const empleadosList = document.getElementById('empleados-list');
+            if (!empleadosList || !sharedData.excelData || sharedData.excelData.length <= 1) return;
+
+            empleadosList.innerHTML = '';
+            const headers = sharedData.excelData[0];
+            const nombreIndex = headers.findIndex(h => h === 'NOMBRES Y APELLIDOS');
+            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
+
+            for (let i = 1; i < sharedData.excelData.length; i++) {
+                const row = sharedData.excelData[i];
+                if (!row) continue;
+
+                const empleadoCard = document.createElement('div');
+                empleadoCard.className = 'empleado-card';
+                empleadoCard.innerHTML = `
+                    <div class="empleado-nombre">${row[nombreIndex] || 'Sin nombre'}</div>
+                    <div class="empleado-estado">${row[estadoIndex] || 'SIN REVISION'}</div>
+                `;
+                empleadoCard.onclick = () => showEmpleadoDetails(i);
+                empleadosList.appendChild(empleadoCard);
+            }
+        }
+
+        // Función para mostrar detalles del empleado
+        function showEmpleadoDetails(rowIndex) {
+            if (!sharedData.excelData || !sharedData.excelData[rowIndex]) return;
+
+            const headers = sharedData.excelData[0];
+            const rowData = sharedData.excelData[rowIndex];
+            const content = document.getElementById('confirmador-row-content');
+            content.innerHTML = '';
+
+            headers.forEach((header, index) => {
+                if (header === 'ESTADO') return; // Omitir el campo ESTADO aquí
+
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.innerHTML = `
+                    <label>${header}</label>
+                    <input type="text" value="${rowData[index] || ''}" readonly>
+                `;
+                content.appendChild(div);
+            });
+
+            // Actualizar el select de estado
+            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
+            const estadoSelect = document.getElementById('estado-select');
+            estadoSelect.value = rowData[estadoIndex] || 'SIN REVISION';
+            estadoSelect.dataset.rowIndex = rowIndex;
+
+            // Marcar la tarjeta seleccionada
+            document.querySelectorAll('.empleado-card').forEach((card, i) => {
+                card.classList.toggle('selected', i === rowIndex - 1);
+            });
+        }
+
+        // Función para actualizar el estado
+        function updateEstado(newEstado) {
+            const estadoSelect = document.getElementById('estado-select');
+            const rowIndex = parseInt(estadoSelect.dataset.rowIndex);
+            if (!sharedData.excelData || !sharedData.excelData[rowIndex]) return;
+
+            const headers = sharedData.excelData[0];
+            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
+            sharedData.excelData[rowIndex][estadoIndex] = newEstado;
+            saveToSupabase();
+            displayEmpleadosList();
+        }
+
+        // Función para mostrar el diálogo de firma
+        function mostrarFirma() {
+            const pdfContainer = document.getElementById('confirmador-pdf-container');
+            const iframe = pdfContainer.querySelector('iframe');
+            if (!iframe) return;
+
+            // Aquí implementaremos la lógica para mostrar el diálogo de firma
+            // y permitir firmar en la última página del PDF
+        }
+
+        // Función para cerrar el visor de PDF
+        function closePDFViewer() {
+            document.getElementById('confirmador-pdf-viewer').style.display = 'none';
+        }
+
+        // Función para cargar datos del confirmador
+        async function loadConfirmadorData() {
+            console.log('Cargando datos del confirmador...');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('shared_data')
+                    .select('data')
+                    .eq('id', 'current_data')
+                    .single();
+
+                if (error) throw error;
+                if (!data) {
+                    console.log('No hay datos disponibles en Supabase');
+                    return;
+                }
+
+                // Actualizar sharedData solo con los datos guardados
+                if (data.data.excelData) {
+                    sharedData.excelData = data.data.excelData;
+                }
+                if (data.data.pdfs) {
+                    // Convertir Base64 a ArrayBuffer para los PDFs
+                    for (const filename in data.data.pdfs) {
+                        const base64 = data.data.pdfs[filename];
+                        sharedData.pdfs[filename] = base64ToArrayBuffer(base64);
+                    }
+                }
+
+                // Mostrar datos del Excel si existen
+                if (sharedData.excelData && sharedData.excelData.length > 0) {
+                    displayEmpleadosList();
+                }
+
+                // Actualizar lista de PDFs
+                updateConfirmadorPDFList();
+
+            } catch (error) {
+                console.error('Error al cargar datos del confirmador:', error);
+            }
+        }
+
+        // Función para actualizar la lista de PDFs del confirmador
+        function updateConfirmadorPDFList() {
+            const pdfListContent = document.getElementById('confirmador-pdf-list-content');
+            if (!pdfListContent) return;
+
+            pdfListContent.innerHTML = '';
+            const pdfs = sharedData.pdfs;
+            const pdfCount = Object.keys(pdfs).length;
+
+            if (pdfCount > 0) {
+                console.log('PDFs encontrados:', Object.keys(pdfs));
+                Object.keys(pdfs).forEach(filename => {
+                    const thumbnail = document.createElement('div');
+                    thumbnail.className = 'pdf-thumbnail';
+                    thumbnail.innerHTML = `
+                        <div style="width: 100px; height: 140px; background-color: #f5f5f5; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd; cursor: pointer;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 40px; color: #666;">📄</div>
+                                <div style="font-size: 12px; color: #666;">PDF</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 5px; text-align: center; font-size: 12px;">${filename}</div>
+                    `;
+                    thumbnail.onclick = () => displayConfirmadorPDF(filename);
+                    pdfListContent.appendChild(thumbnail);
+                });
+            } else {
+                pdfListContent.innerHTML = '<p style="text-align: center; color: #666;">No hay PDFs disponibles</p>';
+            }
+        }
+
+        // Función para mostrar PDF en el visor del confirmador
+        function displayConfirmadorPDF(filename) {
+            console.log('Mostrando PDF:', filename);
+            const pdfData = sharedData.pdfs[filename];
+            if (!pdfData) {
+                console.error('PDF no encontrado:', filename);
+                return;
+            }
+
+            const pdfViewer = document.getElementById('confirmador-pdf-viewer');
+            const pdfContainer = document.getElementById('confirmador-pdf-container');
+            const pdfName = document.getElementById('confirmador-current-pdf-name');
+
+            // Limpiar el contenedor
+            pdfContainer.innerHTML = '';
+            pdfName.textContent = filename;
+
+            // Crear y mostrar el iframe
+            const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            const iframe = document.createElement('iframe');
+            iframe.src = pdfUrl;
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            pdfContainer.appendChild(iframe);
+
+            // Mostrar el visor
+            pdfViewer.style.display = 'block';
+        }
+
+        // Función para cerrar el visor de PDF del confirmador
+        function closeConfirmadorPDF() {
+            const pdfViewer = document.getElementById('confirmador-pdf-viewer');
+            if (pdfViewer) {
+                pdfViewer.style.display = 'none';
+            }
+        }
+
+        // Inicializar el sistema de firma
+        document.addEventListener('DOMContentLoaded', function() {
+            const signatureInput = document.getElementById('signature-input');
+            const signaturePlaceholder = document.getElementById('signature-placeholder');
+            const signaturePreview = document.getElementById('signature-preview');
+
+            if (signaturePlaceholder) {
+                signaturePlaceholder.addEventListener('click', function() {
+                    signatureInput.click();
+                });
+            }
+
+            if (signatureInput) {
+                signatureInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            signatureData = e.target.result;
+                            if (signaturePreview) {
+                                signaturePreview.src = signatureData;
+                                signaturePreview.style.display = 'block';
+                                signaturePlaceholder.style.display = 'none';
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+        });
+
+        // Función para limpiar la firma
+        function clearSignature() {
+            const signaturePreview = document.getElementById('signature-preview');
+            const signaturePlaceholder = document.getElementById('signature-placeholder');
+            const signatureInput = document.getElementById('signature-input');
+
+            if (signaturePreview) {
+                signaturePreview.src = '';
+                signaturePreview.style.display = 'none';
+            }
+            if (signaturePlaceholder) {
+                signaturePlaceholder.style.display = 'flex';
+            }
+            if (signatureInput) {
+                signatureInput.value = '';
+            }
+            signatureData = null;
+        }
+        
+        // Función para guardar la firma
+        function saveSignature() {
+            if (!signatureData) {
+                alert('Por favor, cargue una imagen de firma primero');
+                return;
+            }
+            alert('Firma guardada correctamente');
+        }
+        
+        // Función para firmar el PDF
+        function firmarPDF() {
+            if (!currentPDF || !signatureData) {
+                alert('Por favor, seleccione un PDF y cargue una firma antes de firmar');
+                return;
+            }
+            
+            // Aquí iría la lógica para añadir la firma al PDF
+            // Por ahora solo simulamos el proceso
+            signedPDFs[currentPDF] = {
+                pdf: sharedData.pdfs[currentPDF],
+                signature: signatureData
+            };
+            
+            alert('Documento firmado correctamente');
+            document.getElementById('download-signed-pdf').style.display = 'inline-block';
+        }
+        
+        // Función para buscar empleados (Confirmador)
+        function searchConfirmadorRows() {
+            const searchInput = document.getElementById('confirmador-search-input');
+            if (!searchInput) return;
+            
+            // Intentar cargar datos actualizados desde Supabase
+            loadConfirmadorData();
+            
+            const searchTerm = searchInput.value.toLowerCase();
+            const empleadosList = document.getElementById('empleados-list');
+            if (!empleadosList || !sharedData.excelData) return;
+            
+            empleadosList.innerHTML = '';
+            const headers = sharedData.excelData[0];
+            const nombreIndex = headers.findIndex(h => h === 'NOMBRES Y APELLIDOS');
+            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
+            
+            for (let i = 1; i < sharedData.excelData.length; i++) {
+                const row = sharedData.excelData[i];
+                if (!row) continue;
+                
+                const nombre = (row[nombreIndex] || '').toString().toLowerCase();
+                if (nombre.includes(searchTerm)) {
+                    const empleadoCard = document.createElement('div');
+                    empleadoCard.className = 'empleado-card';
+                    empleadoCard.innerHTML = `
+                        <div class="empleado-nombre">${row[nombreIndex] || 'Sin nombre'}</div>
+                        <div class="empleado-estado">${row[estadoIndex] || 'SIN REVISION'}</div>
+                    `;
+                    empleadoCard.onclick = () => showEmpleadoDetails(i);
+                    empleadosList.appendChild(empleadoCard);
+                }
+            }
+            
+            if (empleadosList.children.length === 0) {
+                empleadosList.innerHTML = '<p>No se encontraron empleados</p>';
+            }
+        }
+
+        // Función para inicializar la suscripción a cambios en tiempo real
+        function initRealtimeSubscription() {
+            if (currentUser && currentUser.role === 'confirmador') {
+                supabase
+                    .channel('shared_data_changes')
+                    .on('postgres_changes', 
+                        {
+                            event: '*',
+                            schema: 'public',
+                            table: 'shared_data'
+                        },
+                        (payload) => {
+                            console.log('Cambios detectados en Supabase');
+                            loadConfirmadorData();
+                        }
+                    )
+                    .subscribe();
+            }
+        }
+
+        // Función para convertir ArrayBuffer a Base64
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+
+        // Función para convertir Base64 a ArrayBuffer
+        function base64ToArrayBuffer(base64) {
+            const binary_string = window.atob(base64);
+            const len = binary_string.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+    </script>
+</body>
+</html>
