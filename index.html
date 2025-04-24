@@ -9,6 +9,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- Añadir Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const { createClient } = window.supabase;
+    </script>
     
     <!-- Agregar Microsoft Graph SDK -->
     <script src="https://alcdn.msauth.net/browser/2.0.0/js/msal-browser.min.js"></script>
@@ -683,7 +686,7 @@
                                 </button>
                             </div>
                             <div class="pdf-search-container">
-                                <input type="text" class="pdf-search-input confirmador-pdf-search" placeholder="Buscar PDF por nombre...">
+                                <input type="text" id="confirmador-search-input-pdf" class="pdf-search-input confirmador-pdf-search" placeholder="Buscar PDF por nombre...">
                                 <button onclick="searchConfirmadorPDFs(this)" class="pdf-search-btn">Buscar</button>
                             </div>
                             <div id="confirmador-pdf-list-content" class="pdf-content"></div>
@@ -728,7 +731,7 @@
                 <div style="background: white; padding: 15px; border-radius: 8px; overflow-y: auto;">
                     <h2>Lista de Empleados</h2>
                     <div class="search-bar">
-                        <input type="text" id="confirmador-search-input" placeholder="Buscar empleado...">
+                        <input type="text" id="confirmador-search-input-list" placeholder="Buscar empleado...">
                         <button onclick="searchConfirmadorRows()" class="search-btn">Buscar</button>
                     </div>
                     <div id="empleados-list" style="margin-top: 15px;">
@@ -782,7 +785,7 @@
         // Initialize Supabase client
         let supabase;
         try {
-            supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
             console.log('Supabase initialized successfully');
         } catch (error) {
             console.error('Error initializing Supabase:', error);
@@ -821,9 +824,9 @@
         
         // Configuración de Microsoft Graph
         const graphConfig = {
-            clientId: process.env.AZURE_CLIENT_ID,
-            clientSecret: process.env.AZURE_CLIENT_SECRET,
-            tenantId: process.env.AZURE_TENANT_ID,
+            clientId: '',     // Configurar mediante variables de entorno
+            clientSecret: '', // Configurar mediante variables de entorno
+            tenantId: '',     // Configurar mediante variables de entorno
             scope: 'https://graph.microsoft.com/.default'
         };
 
@@ -848,6 +851,10 @@
                     }
                 });
 
+                if (!response.ok) {
+                    throw new Error('Error al obtener el token');
+                }
+
                 const data = await response.json();
                 return data.access_token;
             } catch (error) {
@@ -864,54 +871,28 @@
                     throw new Error('No se pudo obtener el token de acceso');
                 }
 
-                graphClient = MicrosoftGraph.Client.init({
+                // Inicializar el cliente de Graph
+                const graphClient = MicrosoftGraph.Client.init({
                     authProvider: (done) => {
                         done(null, accessToken);
                     }
                 });
 
-                console.log('OneDrive inicializado correctamente');
+                return graphClient;
             } catch (error) {
                 console.error('Error al inicializar OneDrive:', error);
+                return null;
             }
         }
 
-        // Función para guardar Excel en OneDrive
-        async function saveExcelToOneDrive(excelData) {
-            if (!graphClient) {
-                await initializeOneDrive();
-            }
-
-            try {
-                // Convertir datos a Excel
-                const wb = XLSX.utils.book_new();
-                const ws = XLSX.utils.aoa_to_sheet(excelData);
-                XLSX.utils.book_append_sheet(wb, ws, "Empleados");
-                const excelBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
-
-                // Nombre fijo del archivo
-                const fileName = 'Contratos_Empleados.xlsx';
-
-                // Subir a OneDrive
-                await graphClient
-                    .api(`/me/drive/root:/MR_INGENIEROS/${fileName}:/content`)
-                    .put(excelBuffer);
-
-                console.log('Excel actualizado en OneDrive');
-                return true;
-            } catch (error) {
-                console.error('Error al guardar en OneDrive:', error);
-                return false;
-            }
-        }
-
-        // Función para cargar Excel desde OneDrive
+        // Modificar la función loadExcelFromOneDrive para usar el nuevo cliente
         async function loadExcelFromOneDrive() {
-            if (!graphClient) {
-                await initializeOneDrive();
-            }
-
             try {
+                const graphClient = await initializeOneDrive();
+                if (!graphClient) {
+                    throw new Error('No se pudo inicializar el cliente de Graph');
+                }
+
                 const response = await graphClient
                     .api('/me/drive/root:/MR_INGENIEROS/Contratos_Empleados.xlsx:/content')
                     .get();
@@ -1241,10 +1222,302 @@
             });
         }
 
+        // Función para buscar empleados (Confirmador)
+        function searchConfirmadorRows() {
+            const searchInput = document.getElementById('confirmador-search-input-list');
+            if (!searchInput) return;
+            
+            // Intentar cargar datos actualizados desde Supabase
+            loadConfirmadorData();
+            
+            const searchTerm = searchInput.value.toLowerCase();
+            const empleadosList = document.getElementById('empleados-list');
+            if (!empleadosList || !sharedData.excelData) return;
+            
+            empleadosList.innerHTML = '';
+            const headers = sharedData.excelData[0];
+            const nombreIndex = headers.findIndex(h => h === 'NOMBRES Y APELLIDOS');
+            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
+            
+            for (let i = 1; i < sharedData.excelData.length; i++) {
+                const row = sharedData.excelData[i];
+                if (!row) continue;
+                
+                const nombre = (row[nombreIndex] || '').toString().toLowerCase();
+                if (nombre.includes(searchTerm)) {
+                    const empleadoCard = document.createElement('div');
+                    empleadoCard.className = 'empleado-card';
+                    empleadoCard.innerHTML = `
+                        <div class="empleado-nombre">${row[nombreIndex] || 'Sin nombre'}</div>
+                        <div class="empleado-estado">${row[estadoIndex] || 'SIN REVISION'}</div>
+                    `;
+                    empleadoCard.onclick = () => showEmpleadoDetails(i);
+                    empleadosList.appendChild(empleadoCard);
+                }
+            }
+            
+            if (empleadosList.children.length === 0) {
+                empleadosList.innerHTML = '<p>No se encontraron empleados</p>';
+            }
+        }
+
+        // Función para mostrar detalles del empleado
+        function showEmpleadoDetails(rowIndex) {
+            if (!sharedData.excelData || !sharedData.excelData[rowIndex]) return;
+
+            const headers = sharedData.excelData[0];
+            const rowData = sharedData.excelData[rowIndex];
+            const content = document.getElementById('confirmador-row-content');
+            content.innerHTML = '';
+
+            headers.forEach((header, index) => {
+                if (header === 'ESTADO') return; // Omitir el campo ESTADO aquí
+
+                const div = document.createElement('div');
+                div.className = 'form-group';
+                div.innerHTML = `
+                    <label>${header}</label>
+                    <input type="text" value="${rowData[index] || ''}" readonly>
+                `;
+                content.appendChild(div);
+            });
+
+            // Actualizar el select de estado
+            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
+            const estadoSelect = document.getElementById('estado-select');
+            estadoSelect.value = rowData[estadoIndex] || 'SIN REVISION';
+            estadoSelect.dataset.rowIndex = rowIndex;
+
+            // Marcar la tarjeta seleccionada
+            document.querySelectorAll('.empleado-card').forEach((card, i) => {
+                card.classList.toggle('selected', i === rowIndex - 1);
+            });
+        }
+
+        // Función para actualizar el estado
+        function updateEstado(newEstado) {
+            const estadoSelect = document.getElementById('estado-select');
+            const rowIndex = parseInt(estadoSelect.dataset.rowIndex);
+            if (!sharedData.excelData || !sharedData.excelData[rowIndex]) return;
+
+            const headers = sharedData.excelData[0];
+            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
+            sharedData.excelData[rowIndex][estadoIndex] = newEstado;
+            saveToSupabase();
+            displayEmpleadosList();
+        }
+
+        // Función para mostrar el diálogo de firma
+        function mostrarFirma() {
+            const pdfContainer = document.getElementById('confirmador-pdf-container');
+            const iframe = pdfContainer.querySelector('iframe');
+            if (!iframe) return;
+
+            // Aquí implementaremos la lógica para mostrar el diálogo de firma
+            // y permitir firmar en la última página del PDF
+        }
+
+        // Función para cerrar el visor de PDF
+        function closePDFViewer() {
+            document.getElementById('confirmador-pdf-viewer').style.display = 'none';
+        }
+
+        // Función para cargar datos del confirmador
+        async function loadConfirmadorData() {
+            console.log('Cargando datos del confirmador...');
+            
+            try {
+                const { data, error } = await supabase
+                    .from('shared_data')
+                    .select('data')
+                    .eq('id', 'current_data')
+                    .single();
+
+                if (error) throw error;
+                if (!data) {
+                    console.log('No hay datos disponibles en Supabase');
+                    return;
+                }
+
+                // Actualizar sharedData solo con los datos guardados
+                if (data.data.excelData) {
+                    sharedData.excelData = data.data.excelData;
+                }
+                if (data.data.pdfs) {
+                    // Convertir Base64 a ArrayBuffer para los PDFs
+                    for (const filename in data.data.pdfs) {
+                        const base64 = data.data.pdfs[filename];
+                        sharedData.pdfs[filename] = base64ToArrayBuffer(base64);
+                    }
+                }
+
+                // Mostrar datos del Excel si existen
+                if (sharedData.excelData && sharedData.excelData.length > 0) {
+                    displayEmpleadosList();
+                }
+
+                // Actualizar lista de PDFs
+                updateConfirmadorPDFList();
+
+            } catch (error) {
+                console.error('Error al cargar datos del confirmador:', error);
+            }
+        }
+
+        // Función para actualizar la lista de PDFs del confirmador
+        function updateConfirmadorPDFList() {
+            const pdfListContent = document.getElementById('confirmador-pdf-list-content');
+            if (!pdfListContent) return;
+
+            pdfListContent.innerHTML = '';
+            const pdfs = sharedData.pdfs;
+            const pdfCount = Object.keys(pdfs).length;
+
+            if (pdfCount > 0) {
+                console.log('PDFs encontrados:', Object.keys(pdfs));
+                Object.keys(pdfs).forEach(filename => {
+                    const thumbnail = document.createElement('div');
+                    thumbnail.className = 'pdf-thumbnail';
+                    thumbnail.innerHTML = `
+                        <div style="width: 100px; height: 140px; background-color: #f5f5f5; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd; cursor: pointer;">
+                            <div style="text-align: center;">
+                                <div style="font-size: 40px; color: #666;">📄</div>
+                                <div style="font-size: 12px; color: #666;">PDF</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 5px; text-align: center; font-size: 12px;">${filename}</div>
+                    `;
+                    thumbnail.onclick = () => displayConfirmadorPDF(filename);
+                    pdfListContent.appendChild(thumbnail);
+                });
+            } else {
+                pdfListContent.innerHTML = '<p style="text-align: center; color: #666;">No hay PDFs disponibles</p>';
+            }
+        }
+
+        // Función para mostrar PDF en el visor del confirmador
+        function displayConfirmadorPDF(filename) {
+            console.log('Mostrando PDF:', filename);
+            const pdfData = sharedData.pdfs[filename];
+            if (!pdfData) {
+                console.error('PDF no encontrado:', filename);
+                return;
+            }
+
+            const pdfViewer = document.getElementById('confirmador-pdf-viewer');
+            const pdfContainer = document.getElementById('confirmador-pdf-container');
+            const pdfName = document.getElementById('confirmador-current-pdf-name');
+
+            // Limpiar el contenedor
+            pdfContainer.innerHTML = '';
+            pdfName.textContent = filename;
+
+            // Crear y mostrar el iframe
+            const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
+            const pdfUrl = URL.createObjectURL(pdfBlob);
+            const iframe = document.createElement('iframe');
+            iframe.src = pdfUrl;
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            pdfContainer.appendChild(iframe);
+
+            // Mostrar el visor
+            pdfViewer.style.display = 'block';
+        }
+
+        // Función para cerrar el visor de PDF del confirmador
+        function closeConfirmadorPDF() {
+            const pdfViewer = document.getElementById('confirmador-pdf-viewer');
+            if (pdfViewer) {
+                pdfViewer.style.display = 'none';
+            }
+        }
+
+        // Inicializar el sistema de firma
+        document.addEventListener('DOMContentLoaded', function() {
+            const signatureInput = document.getElementById('signature-input');
+            const signaturePlaceholder = document.getElementById('signature-placeholder');
+            const signaturePreview = document.getElementById('signature-preview');
+
+            if (signaturePlaceholder) {
+                signaturePlaceholder.addEventListener('click', function() {
+                    signatureInput.click();
+                });
+            }
+
+            if (signatureInput) {
+                signatureInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            signatureData = e.target.result;
+                            if (signaturePreview) {
+                                signaturePreview.src = signatureData;
+                                signaturePreview.style.display = 'block';
+                                signaturePlaceholder.style.display = 'none';
+                            }
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+        });
+
+        // Función para limpiar la firma
+        function clearSignature() {
+            const signaturePreview = document.getElementById('signature-preview');
+            const signaturePlaceholder = document.getElementById('signature-placeholder');
+            const signatureInput = document.getElementById('signature-input');
+
+            if (signaturePreview) {
+                signaturePreview.src = '';
+                signaturePreview.style.display = 'none';
+            }
+            if (signaturePlaceholder) {
+                signaturePlaceholder.style.display = 'flex';
+            }
+            if (signatureInput) {
+                signatureInput.value = '';
+            }
+            signatureData = null;
+        }
+        
+        // Función para guardar la firma
+        function saveSignature() {
+            if (!signatureData) {
+                alert('Por favor, cargue una imagen de firma primero');
+                return;
+            }
+            alert('Firma guardada correctamente');
+        }
+        
+        // Función para firmar el PDF
+        function firmarPDF() {
+            if (!currentPDF || !signatureData) {
+                alert('Por favor, seleccione un PDF y cargue una firma antes de firmar');
+                return;
+            }
+            
+            // Aquí iría la lógica para añadir la firma al PDF
+            // Por ahora solo simulamos el proceso
+            signedPDFs[currentPDF] = {
+                pdf: sharedData.pdfs[currentPDF],
+                signature: signatureData
+            };
+            
+            alert('Documento firmado correctamente');
+            document.getElementById('download-signed-pdf').style.display = 'inline-block';
+        }
+        
         // Función para buscar PDFs (Confirmador)
         function searchConfirmadorPDFs(button) {
             const searchContainer = button.closest('.pdf-search-container');
-            const searchTerm = searchContainer.querySelector('.confirmador-pdf-search').value.toLowerCase();
+            const searchInput = document.getElementById('confirmador-search-input-pdf');
+            if (!searchInput) return;
+            
+            const searchTerm = searchInput.value.toLowerCase();
             const pdfListContent = searchContainer.closest('.pdf-section').querySelector('.pdf-content');
             const thumbnails = pdfListContent.querySelectorAll('.pdf-thumbnail');
             
@@ -1537,295 +1810,6 @@
                 `;
                 empleadoCard.onclick = () => showEmpleadoDetails(i);
                 empleadosList.appendChild(empleadoCard);
-            }
-        }
-
-        // Función para mostrar detalles del empleado
-        function showEmpleadoDetails(rowIndex) {
-            if (!sharedData.excelData || !sharedData.excelData[rowIndex]) return;
-
-            const headers = sharedData.excelData[0];
-            const rowData = sharedData.excelData[rowIndex];
-            const content = document.getElementById('confirmador-row-content');
-            content.innerHTML = '';
-
-            headers.forEach((header, index) => {
-                if (header === 'ESTADO') return; // Omitir el campo ESTADO aquí
-
-                const div = document.createElement('div');
-                div.className = 'form-group';
-                div.innerHTML = `
-                    <label>${header}</label>
-                    <input type="text" value="${rowData[index] || ''}" readonly>
-                `;
-                content.appendChild(div);
-            });
-
-            // Actualizar el select de estado
-            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
-            const estadoSelect = document.getElementById('estado-select');
-            estadoSelect.value = rowData[estadoIndex] || 'SIN REVISION';
-            estadoSelect.dataset.rowIndex = rowIndex;
-
-            // Marcar la tarjeta seleccionada
-            document.querySelectorAll('.empleado-card').forEach((card, i) => {
-                card.classList.toggle('selected', i === rowIndex - 1);
-            });
-        }
-
-        // Función para actualizar el estado
-        function updateEstado(newEstado) {
-            const estadoSelect = document.getElementById('estado-select');
-            const rowIndex = parseInt(estadoSelect.dataset.rowIndex);
-            if (!sharedData.excelData || !sharedData.excelData[rowIndex]) return;
-
-            const headers = sharedData.excelData[0];
-            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
-            sharedData.excelData[rowIndex][estadoIndex] = newEstado;
-            saveToSupabase();
-            displayEmpleadosList();
-        }
-
-        // Función para mostrar el diálogo de firma
-        function mostrarFirma() {
-            const pdfContainer = document.getElementById('confirmador-pdf-container');
-            const iframe = pdfContainer.querySelector('iframe');
-            if (!iframe) return;
-
-            // Aquí implementaremos la lógica para mostrar el diálogo de firma
-            // y permitir firmar en la última página del PDF
-        }
-
-        // Función para cerrar el visor de PDF
-        function closePDFViewer() {
-            document.getElementById('confirmador-pdf-viewer').style.display = 'none';
-        }
-
-        // Función para cargar datos del confirmador
-        async function loadConfirmadorData() {
-            console.log('Cargando datos del confirmador...');
-            
-            try {
-                const { data, error } = await supabase
-                    .from('shared_data')
-                    .select('data')
-                    .eq('id', 'current_data')
-                    .single();
-
-                if (error) throw error;
-                if (!data) {
-                    console.log('No hay datos disponibles en Supabase');
-                    return;
-                }
-
-                // Actualizar sharedData solo con los datos guardados
-                if (data.data.excelData) {
-                    sharedData.excelData = data.data.excelData;
-                }
-                if (data.data.pdfs) {
-                    // Convertir Base64 a ArrayBuffer para los PDFs
-                    for (const filename in data.data.pdfs) {
-                        const base64 = data.data.pdfs[filename];
-                        sharedData.pdfs[filename] = base64ToArrayBuffer(base64);
-                    }
-                }
-
-                // Mostrar datos del Excel si existen
-                if (sharedData.excelData && sharedData.excelData.length > 0) {
-                    displayEmpleadosList();
-                }
-
-                // Actualizar lista de PDFs
-                updateConfirmadorPDFList();
-
-            } catch (error) {
-                console.error('Error al cargar datos del confirmador:', error);
-            }
-        }
-
-        // Función para actualizar la lista de PDFs del confirmador
-        function updateConfirmadorPDFList() {
-            const pdfListContent = document.getElementById('confirmador-pdf-list-content');
-            if (!pdfListContent) return;
-
-            pdfListContent.innerHTML = '';
-            const pdfs = sharedData.pdfs;
-            const pdfCount = Object.keys(pdfs).length;
-
-            if (pdfCount > 0) {
-                console.log('PDFs encontrados:', Object.keys(pdfs));
-                Object.keys(pdfs).forEach(filename => {
-                    const thumbnail = document.createElement('div');
-                    thumbnail.className = 'pdf-thumbnail';
-                    thumbnail.innerHTML = `
-                        <div style="width: 100px; height: 140px; background-color: #f5f5f5; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd; cursor: pointer;">
-                            <div style="text-align: center;">
-                                <div style="font-size: 40px; color: #666;">📄</div>
-                                <div style="font-size: 12px; color: #666;">PDF</div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 5px; text-align: center; font-size: 12px;">${filename}</div>
-                    `;
-                    thumbnail.onclick = () => displayConfirmadorPDF(filename);
-                    pdfListContent.appendChild(thumbnail);
-                });
-            } else {
-                pdfListContent.innerHTML = '<p style="text-align: center; color: #666;">No hay PDFs disponibles</p>';
-            }
-        }
-
-        // Función para mostrar PDF en el visor del confirmador
-        function displayConfirmadorPDF(filename) {
-            console.log('Mostrando PDF:', filename);
-            const pdfData = sharedData.pdfs[filename];
-            if (!pdfData) {
-                console.error('PDF no encontrado:', filename);
-                return;
-            }
-
-            const pdfViewer = document.getElementById('confirmador-pdf-viewer');
-            const pdfContainer = document.getElementById('confirmador-pdf-container');
-            const pdfName = document.getElementById('confirmador-current-pdf-name');
-
-            // Limpiar el contenedor
-            pdfContainer.innerHTML = '';
-            pdfName.textContent = filename;
-
-            // Crear y mostrar el iframe
-            const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
-            const pdfUrl = URL.createObjectURL(pdfBlob);
-            const iframe = document.createElement('iframe');
-            iframe.src = pdfUrl;
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            pdfContainer.appendChild(iframe);
-
-            // Mostrar el visor
-            pdfViewer.style.display = 'block';
-        }
-
-        // Función para cerrar el visor de PDF del confirmador
-        function closeConfirmadorPDF() {
-            const pdfViewer = document.getElementById('confirmador-pdf-viewer');
-            if (pdfViewer) {
-                pdfViewer.style.display = 'none';
-            }
-        }
-
-        // Inicializar el sistema de firma
-        document.addEventListener('DOMContentLoaded', function() {
-            const signatureInput = document.getElementById('signature-input');
-            const signaturePlaceholder = document.getElementById('signature-placeholder');
-            const signaturePreview = document.getElementById('signature-preview');
-
-            if (signaturePlaceholder) {
-                signaturePlaceholder.addEventListener('click', function() {
-                    signatureInput.click();
-                });
-            }
-
-            if (signatureInput) {
-                signatureInput.addEventListener('change', function(e) {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            signatureData = e.target.result;
-                            if (signaturePreview) {
-                                signaturePreview.src = signatureData;
-                                signaturePreview.style.display = 'block';
-                                signaturePlaceholder.style.display = 'none';
-                            }
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                });
-            }
-        });
-
-        // Función para limpiar la firma
-        function clearSignature() {
-            const signaturePreview = document.getElementById('signature-preview');
-            const signaturePlaceholder = document.getElementById('signature-placeholder');
-            const signatureInput = document.getElementById('signature-input');
-
-            if (signaturePreview) {
-                signaturePreview.src = '';
-                signaturePreview.style.display = 'none';
-            }
-            if (signaturePlaceholder) {
-                signaturePlaceholder.style.display = 'flex';
-            }
-            if (signatureInput) {
-                signatureInput.value = '';
-            }
-            signatureData = null;
-        }
-        
-        // Función para guardar la firma
-        function saveSignature() {
-            if (!signatureData) {
-                alert('Por favor, cargue una imagen de firma primero');
-                return;
-            }
-            alert('Firma guardada correctamente');
-        }
-        
-        // Función para firmar el PDF
-        function firmarPDF() {
-            if (!currentPDF || !signatureData) {
-                alert('Por favor, seleccione un PDF y cargue una firma antes de firmar');
-                return;
-            }
-            
-            // Aquí iría la lógica para añadir la firma al PDF
-            // Por ahora solo simulamos el proceso
-            signedPDFs[currentPDF] = {
-                pdf: sharedData.pdfs[currentPDF],
-                signature: signatureData
-            };
-            
-            alert('Documento firmado correctamente');
-            document.getElementById('download-signed-pdf').style.display = 'inline-block';
-        }
-        
-        // Función para buscar empleados (Confirmador)
-        function searchConfirmadorRows() {
-            const searchInput = document.getElementById('confirmador-search-input');
-            if (!searchInput) return;
-            
-            // Intentar cargar datos actualizados desde Supabase
-            loadConfirmadorData();
-            
-            const searchTerm = searchInput.value.toLowerCase();
-            const empleadosList = document.getElementById('empleados-list');
-            if (!empleadosList || !sharedData.excelData) return;
-            
-            empleadosList.innerHTML = '';
-            const headers = sharedData.excelData[0];
-            const nombreIndex = headers.findIndex(h => h === 'NOMBRES Y APELLIDOS');
-            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
-            
-            for (let i = 1; i < sharedData.excelData.length; i++) {
-                const row = sharedData.excelData[i];
-                if (!row) continue;
-                
-                const nombre = (row[nombreIndex] || '').toString().toLowerCase();
-                if (nombre.includes(searchTerm)) {
-                    const empleadoCard = document.createElement('div');
-                    empleadoCard.className = 'empleado-card';
-                    empleadoCard.innerHTML = `
-                        <div class="empleado-nombre">${row[nombreIndex] || 'Sin nombre'}</div>
-                        <div class="empleado-estado">${row[estadoIndex] || 'SIN REVISION'}</div>
-                    `;
-                    empleadoCard.onclick = () => showEmpleadoDetails(i);
-                    empleadosList.appendChild(empleadoCard);
-                }
-            }
-            
-            if (empleadosList.children.length === 0) {
-                empleadosList.innerHTML = '<p>No se encontraron empleados</p>';
             }
         }
 
