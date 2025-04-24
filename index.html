@@ -1015,25 +1015,54 @@
         // Función para guardar cambios del revisor
         async function saveChanges() {
             try {
-                // Añadir información de revisión
-                if (!sharedData.excelData[0].includes('ESTADO')) {
-                    sharedData.excelData[0].push('ESTADO');
-                    sharedData.excelData[0].push('PDF_ASOCIADO');
+                if (!sharedData.excelData || !Array.isArray(sharedData.excelData)) {
+                    throw new Error('No hay datos válidos para guardar');
+                }
+
+                // Asegurarse de que exista la primera fila (headers)
+                if (!sharedData.excelData[0]) {
+                    throw new Error('El archivo Excel no tiene encabezados válidos');
+                }
+
+                // Añadir columnas si no existen
+                const headers = sharedData.excelData[0];
+                if (!headers.includes('ESTADO')) {
+                    headers.push('ESTADO');
+                }
+                if (!headers.includes('PDF_ASOCIADO')) {
+                    headers.push('PDF_ASOCIADO');
                 }
 
                 // Actualizar el estado de las filas y asociar PDFs
                 for (let i = 1; i < sharedData.excelData.length; i++) {
-                    if (!sharedData.excelData[i]) continue;
-                    
-                    // Si no existe el campo de estado, añadirlo
-                    if (sharedData.excelData[i].length <= sharedData.excelData[0].length - 2) {
-                        sharedData.excelData[i].push('PENDIENTE');
-                        
-                        // Asociar PDF si existe uno con nombre similar
-                        const nombreEmpleado = sharedData.excelData[i][sharedData.excelData[0].indexOf('NOMBRES Y APELLIDOS')];
-                        const pdfAsociado = Object.keys(sharedData.pdfs).find(filename => 
-                            filename.toLowerCase().includes(nombreEmpleado.toLowerCase().split(' ')[0]));
-                        sharedData.excelData[i].push(pdfAsociado || '');
+                    if (!sharedData.excelData[i]) {
+                        sharedData.excelData[i] = new Array(headers.length).fill('');
+                        continue;
+                    }
+
+                    // Asegurarse de que la fila tenga todas las columnas
+                    while (sharedData.excelData[i].length < headers.length) {
+                        sharedData.excelData[i].push('');
+                    }
+
+                    const estadoIndex = headers.indexOf('ESTADO');
+                    const pdfIndex = headers.indexOf('PDF_ASOCIADO');
+                    const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
+
+                    // Si no tiene estado, establecer como PENDIENTE
+                    if (!sharedData.excelData[i][estadoIndex]) {
+                        sharedData.excelData[i][estadoIndex] = 'PENDIENTE';
+                    }
+
+                    // Asociar PDF si no tiene uno y existe el nombre
+                    if (!sharedData.excelData[i][pdfIndex] && nombreIndex >= 0) {
+                        const nombreEmpleado = String(sharedData.excelData[i][nombreIndex] || '');
+                        if (nombreEmpleado) {
+                            const pdfAsociado = Object.keys(sharedData.pdfs || {}).find(filename => 
+                                filename.toLowerCase().includes(nombreEmpleado.split(' ')[0].toLowerCase())
+                            );
+                            sharedData.excelData[i][pdfIndex] = pdfAsociado || '';
+                        }
                     }
                 }
 
@@ -1041,7 +1070,7 @@
                 alert('Cambios guardados correctamente. Los documentos están listos para ser revisados por la Directora RH.');
             } catch (error) {
                 console.error('Error al guardar cambios:', error);
-                alert('Error al guardar los cambios. Por favor, intente nuevamente.');
+                alert('Error al guardar los cambios: ' + error.message);
             }
         }
 
@@ -1275,40 +1304,54 @@
 
         // Función para buscar empleados (Confirmador)
         function searchConfirmadorRows() {
-            const searchInput = document.getElementById('confirmador-search-input');
-            if (!searchInput) return;
-            
-            // Intentar cargar datos actualizados desde Supabase
-            loadConfirmadorData();
-            
-            const searchTerm = searchInput.value.toLowerCase();
-            const empleadosList = document.getElementById('empleados-list');
-            if (!empleadosList || !sharedData.excelData) return;
-            
-            empleadosList.innerHTML = '';
-            const headers = sharedData.excelData[0];
-            const nombreIndex = headers.findIndex(h => h === 'NOMBRES Y APELLIDOS');
-            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
-            
-            for (let i = 1; i < sharedData.excelData.length; i++) {
-                const row = sharedData.excelData[i];
-                if (!row) continue;
+            try {
+                const searchInput = document.getElementById('confirmador-search-input');
+                if (!searchInput) return;
+
+                // Intentar cargar datos actualizados desde Supabase
+                loadConfirmadorData();
+
+                const searchTerm = (searchInput.value || '').toLowerCase();
+                const empleadosList = document.getElementById('empleados-list');
                 
-                const nombre = (row[nombreIndex] || '').toString().toLowerCase();
-                if (nombre.includes(searchTerm)) {
-                    const empleadoCard = document.createElement('div');
-                    empleadoCard.className = 'empleado-card';
-                    empleadoCard.innerHTML = `
-                        <div class="empleado-nombre">${row[nombreIndex] || 'Sin nombre'}</div>
-                        <div class="empleado-estado">${row[estadoIndex] || 'SIN REVISION'}</div>
-                    `;
-                    empleadoCard.onclick = () => showEmpleadoDetails(i);
-                    empleadosList.appendChild(empleadoCard);
+                if (!empleadosList || !sharedData.excelData || !Array.isArray(sharedData.excelData)) {
+                    console.error('Elementos necesarios no encontrados');
+                    return;
                 }
-            }
-            
-            if (empleadosList.children.length === 0) {
-                empleadosList.innerHTML = '<p>No se encontraron empleados</p>';
+
+                empleadosList.innerHTML = '';
+                const headers = sharedData.excelData[0] || [];
+                const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
+                const estadoIndex = headers.indexOf('ESTADO');
+
+                if (nombreIndex === -1) {
+                    console.error('Columna de nombres no encontrada');
+                    return;
+                }
+
+                for (let i = 1; i < sharedData.excelData.length; i++) {
+                    const row = sharedData.excelData[i];
+                    if (!row) continue;
+
+                    const nombre = String(row[nombreIndex] || '').toLowerCase();
+                    if (nombre.includes(searchTerm)) {
+                        const empleadoCard = document.createElement('div');
+                        empleadoCard.className = 'empleado-card';
+                        empleadoCard.innerHTML = `
+                            <div class="empleado-nombre">${row[nombreIndex] || 'Sin nombre'}</div>
+                            <div class="empleado-estado">${row[estadoIndex] || 'SIN REVISION'}</div>
+                        `;
+                        empleadoCard.onclick = () => showEmpleadoDetails(i);
+                        empleadosList.appendChild(empleadoCard);
+                    }
+                }
+
+                if (empleadosList.children.length === 0) {
+                    empleadosList.innerHTML = '<p>No se encontraron empleados</p>';
+                }
+            } catch (error) {
+                console.error('Error en la búsqueda:', error);
+                alert('Error al buscar empleados: ' + error.message);
             }
         }
 
