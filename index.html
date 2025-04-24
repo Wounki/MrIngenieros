@@ -1006,17 +1006,20 @@
                 <div class="empleados-section">
                     <h2>Autorización de Documento</h2>
                     <div class="search-container">
-                        <input type="text" id="confirmador-search-input" placeholder="Buscar persona por nombre o identificación..." class="search-input">
+                        <input type="text" id="confirmador-search-input" placeholder="Buscar persona por nombre o identificación..." class="search-input" oninput="searchConfirmadorRows()">
                     </div>
-                    <div id="empleados-list"></div>
+                    <div id="no-docs-message" style="display: none;">
+                        No hay documentos para autorizar.
+                    </div>
+                    <div id="empleados-list" class="empleados-list"></div>
                 </div>
-                
+
                 <div id="empleado-details" class="empleado-details">
                     <div class="empleado-info">
                         <h3>Detalles del Empleado</h3>
                         <div id="info-grid" class="info-grid"></div>
                     </div>
-                    
+
                     <div class="pdf-section">
                         <h3>Documentos PDF</h3>
                         <div class="pdf-search">
@@ -1596,20 +1599,44 @@
             console.log('Cargando datos del confirmador...');
             
             try {
+                // Verificar que los elementos del DOM existan
+                const noDocsMessage = document.getElementById('no-docs-message');
+                const empleadosList = document.getElementById('empleados-list');
+                
+                if (!noDocsMessage || !empleadosList) {
+                    console.error('Elementos del DOM no encontrados');
+                    return;
+                }
+
                 const { data, error } = await supabase
                     .from('shared_data')
                     .select('data')
                     .eq('id', 'current_data')
                     .single();
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Error al obtener datos de Supabase:', error);
+                    noDocsMessage.style.display = 'block';
+                    noDocsMessage.textContent = 'Error al cargar los datos. Por favor, intente nuevamente.';
+                    return;
+                }
+
                 if (!data || !data.data) {
                     console.log('No hay datos disponibles en Supabase');
-                    document.getElementById('no-docs-message').style.display = 'block';
+                    noDocsMessage.style.display = 'block';
+                    empleadosList.innerHTML = '';
                     return;
                 }
 
                 console.log('Datos recibidos de Supabase:', data);
+
+                // Inicializar sharedData si no existe
+                if (!window.sharedData) {
+                    window.sharedData = {
+                        excelData: null,
+                        pdfs: {}
+                    };
+                }
 
                 // Actualizar sharedData con los datos guardados
                 if (data.data.excelData) {
@@ -1622,30 +1649,30 @@
                     // Convertir Base64 a ArrayBuffer para los PDFs
                     for (const filename in data.data.pdfs) {
                         const base64 = data.data.pdfs[filename];
-                        sharedData.pdfs[filename] = base64ToArrayBuffer(base64);
-                        console.log('PDF cargado:', filename);
+                        if (base64) {
+                            try {
+                                sharedData.pdfs[filename] = base64ToArrayBuffer(base64);
+                                console.log('PDF cargado:', filename);
+                            } catch (e) {
+                                console.error('Error al convertir PDF:', filename, e);
+                            }
+                        }
                     }
                 }
 
-                // Ocultar mensaje de no documentos si hay datos
-                document.getElementById('no-docs-message').style.display = 
-                    (sharedData.excelData && sharedData.excelData.length > 1) ? 'none' : 'block';
+                // Actualizar la interfaz
+                noDocsMessage.style.display = 'none';
+                empleadosList.innerHTML = '';
 
-                // Crear y actualizar la lista de empleados si no existe
-                let empleadosList = document.getElementById('empleados-list');
-                if (!empleadosList) {
-                    empleadosList = document.createElement('div');
-                    empleadosList.id = 'empleados-list';
-                    empleadosList.className = 'empleados-list';
-                    document.querySelector('.confirmador-content').appendChild(empleadosList);
-                }
-
-                // Mostrar la lista de empleados
                 if (sharedData.excelData && sharedData.excelData.length > 1) {
-                    empleadosList.innerHTML = '';
                     const headers = sharedData.excelData[0];
                     const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
                     const estadoIndex = headers.indexOf('ESTADO');
+
+                    if (nombreIndex === -1) {
+                        console.error('Columna de nombres no encontrada');
+                        return;
+                    }
 
                     for (let i = 1; i < sharedData.excelData.length; i++) {
                         const row = sharedData.excelData[i];
@@ -1661,6 +1688,8 @@
                         empleadoCard.onclick = () => showEmpleadoDetails(i);
                         empleadosList.appendChild(empleadoCard);
                     }
+                } else {
+                    empleadosList.innerHTML = '<p>No hay datos de empleados disponibles</p>';
                 }
 
                 // Actualizar contador de PDFs
@@ -1670,14 +1699,14 @@
                     pdfCountElement.textContent = pdfCount;
                 }
 
-                // Actualizar lista de PDFs
-                updateConfirmadorPDFList();
-
                 console.log('Carga de datos completada');
 
             } catch (error) {
                 console.error('Error al cargar datos del confirmador:', error);
-                alert('Error al cargar los datos. Por favor, intente nuevamente.');
+                if (noDocsMessage) {
+                    noDocsMessage.style.display = 'block';
+                    noDocsMessage.textContent = 'Error al cargar los datos. Por favor, intente nuevamente.';
+                }
             }
         }
 
