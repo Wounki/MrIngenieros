@@ -924,49 +924,91 @@
 
         // Función para cargar Excel
         async function loadExcel() {
-            const fileInput = document.getElementById('excel-file');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                alert('Por favor seleccione un archivo Excel');
-                return;
-            }
-            
             try {
+                const fileInput = document.getElementById('excel-file');
+                const file = fileInput.files[0];
+                
+                if (!file) {
+                    alert('Por favor seleccione un archivo Excel');
+                    return;
+                }
+
+                // Verificar el tipo de archivo
+                const validTypes = [
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'application/vnd.ms-excel'
+                ];
+                if (!validTypes.includes(file.type)) {
+                    alert('Por favor, seleccione un archivo Excel válido (.xlsx o .xls)');
+                    return;
+                }
+
                 const reader = new FileReader();
+                
                 reader.onload = async function(e) {
                     try {
                         const data = new Uint8Array(e.target.result);
-                        workbook = XLSX.read(data, { type: 'array' });
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        
+                        if (!workbook || !workbook.SheetNames || workbook.SheetNames.length === 0) {
+                            throw new Error('El archivo Excel está vacío o dañado');
+                        }
                         
                         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                        sharedData.excelData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-                        
+                        if (!firstSheet) {
+                            throw new Error('No se pudo leer la hoja de cálculo');
+                        }
+
+                        // Convertir a JSON con manejo de errores
+                        const excelData = XLSX.utils.sheet_to_json(firstSheet, { 
+                            header: 1,
+                            raw: false,
+                            defval: '' // Valor por defecto para celdas vacías
+                        });
+
+                        if (!excelData || excelData.length <= 1) {
+                            throw new Error('El archivo Excel no contiene datos suficientes');
+                        }
+
+                        // Guardar datos en el objeto compartido
+                        sharedData.excelData = excelData;
                         sharedData.filteredRows = Array.from(
-                            { length: sharedData.excelData.length - 1 }, 
+                            { length: excelData.length - 1 }, 
                             (_, i) => i + 1
                         );
-                        
+                        sharedData.currentRowIndex = 1;
+
+                        // Actualizar la interfaz
                         document.getElementById('excel-data').style.display = 'block';
                         document.getElementById('total-rows').textContent = sharedData.filteredRows.length;
-                        
-                        sharedData.currentRowIndex = 1;
                         displayExcelRow();
-                        
-                        await saveToSupabase();
-                        console.log('Excel guardado en Supabase');
-                        
+
+                        // Guardar en Supabase
+                        try {
+                            await saveToSupabase();
+                            console.log('Excel guardado en Supabase exitosamente');
+                        } catch (supabaseError) {
+                            console.error('Error al guardar en Supabase:', supabaseError);
+                            alert('Los datos se cargaron correctamente pero hubo un error al guardarlos en la base de datos. Por favor, intente guardar los cambios manualmente.');
+                        }
+
                     } catch (error) {
                         console.error('Error al procesar el Excel:', error);
-                        alert('Error al procesar el archivo Excel');
+                        alert('Error al procesar el archivo Excel: ' + error.message);
+                        document.getElementById('excel-data').style.display = 'none';
                     }
+                };
+
+                reader.onerror = function(error) {
+                    console.error('Error al leer el archivo:', error);
+                    alert('Error al leer el archivo Excel. Por favor, intente nuevamente.');
                 };
                 
                 reader.readAsArrayBuffer(file);
                 
             } catch (error) {
                 console.error('Error al cargar el Excel:', error);
-                alert('Error al cargar el archivo Excel');
+                alert('Error al cargar el archivo Excel: ' + error.message);
             }
         }
 
