@@ -993,7 +993,7 @@
         </div>
 
         <!-- Dashboard para el usuario Confirmador -->
-        <div class="dashboard" id="confirmador-dashboard">
+        <div class="dashboard" id="confirmador-dashboard" style="display: none;">
             <div class="header">
                 <h1>Panel de Control - Directora RH</h1>
                 <div>
@@ -1003,29 +1003,62 @@
             </div>
 
             <div class="confirmador-content">
+                <!-- Sección de lista de empleados -->
                 <div class="empleados-section">
                     <h2>Autorización de Documento</h2>
                     <div class="search-container">
-                        <input type="text" id="confirmador-search-input" placeholder="Buscar persona por nombre o identificación..." class="search-input" oninput="searchConfirmadorRows()">
+                        <input type="text" 
+                               id="confirmador-search-input" 
+                               placeholder="Buscar persona por nombre o identificación..." 
+                               class="search-input" 
+                               oninput="searchConfirmadorRows()">
                     </div>
-                    <div id="no-docs-message" style="display: none;">
+                    <!-- Mensaje cuando no hay documentos -->
+                    <div id="no-docs-message" style="display: none; padding: 15px; background: #fff3e0; border-radius: 4px; margin: 10px 0;">
                         No hay documentos para autorizar.
                     </div>
+                    <!-- Lista de empleados -->
                     <div id="empleados-list" class="empleados-list"></div>
                 </div>
 
+                <!-- Sección de detalles del empleado -->
                 <div id="empleado-details" class="empleado-details">
+                    <!-- Información del empleado -->
                     <div class="empleado-info">
                         <h3>Detalles del Empleado</h3>
                         <div id="info-grid" class="info-grid"></div>
                     </div>
 
+                    <!-- Sección de PDFs -->
                     <div class="pdf-section">
                         <h3>Documentos PDF</h3>
                         <div class="pdf-search">
-                            <input type="text" id="pdf-search-input" placeholder="Buscar PDF...">
+                            <input type="text" 
+                                   id="pdf-search-input" 
+                                   placeholder="Buscar PDF..." 
+                                   class="search-input">
                         </div>
                         <div id="pdf-grid" class="pdf-grid"></div>
+                    </div>
+
+                    <!-- Sección de firma -->
+                    <div class="firma-section" style="display: none;">
+                        <h3>Firma Digital</h3>
+                        <div class="signature-container">
+                            <input type="file" 
+                                   id="signature-input" 
+                                   class="signature-input" 
+                                   accept="image/*" 
+                                   onchange="handleFirmaUpload(event)">
+                            <div id="signature-placeholder" class="signature-placeholder">
+                                Haga clic aquí para cargar su firma
+                            </div>
+                            <img id="signature-preview" class="signature-preview" alt="Vista previa de la firma">
+                        </div>
+                        <div class="signature-buttons">
+                            <button onclick="clearSignature()">Limpiar</button>
+                            <button onclick="firmarPDF()">Firmar Documento</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -2107,6 +2140,7 @@
                     role: users[username].role
                 };
                 
+                // Ocultar formulario de login
                 document.getElementById('login-form').style.display = 'none';
                 loginError.style.display = 'none';
 
@@ -2114,7 +2148,27 @@
                     document.getElementById('revisor-dashboard').style.display = 'block';
                     showTab('comparison-tab');
                 } else if (currentUser.role === 'confirmador') {
-                    document.getElementById('confirmador-dashboard').style.display = 'block';
+                    const confirmadorDashboard = document.getElementById('confirmador-dashboard');
+                    confirmadorDashboard.style.display = 'block';
+                    
+                    // Esperar a que el DOM esté actualizado
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Verificar que los elementos necesarios existan
+                    const requiredElements = [
+                        'no-docs-message',
+                        'empleados-list',
+                        'empleado-details',
+                        'info-grid',
+                        'pdf-grid'
+                    ];
+                    
+                    const missingElements = requiredElements.filter(id => !document.getElementById(id));
+                    if (missingElements.length > 0) {
+                        console.error('Elementos faltantes:', missingElements);
+                        throw new Error('No se encontraron todos los elementos necesarios en el DOM');
+                    }
+                    
                     await loadConfirmadorData();
                     initRealtimeSubscription();
                 }
@@ -2124,6 +2178,11 @@
                 const loginError = document.getElementById('login-error');
                 loginError.textContent = 'Error al iniciar sesión. Por favor, intente nuevamente.';
                 loginError.style.display = 'block';
+                
+                // Revertir cambios en caso de error
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('revisor-dashboard').style.display = 'none';
+                document.getElementById('confirmador-dashboard').style.display = 'none';
             }
         }
 
