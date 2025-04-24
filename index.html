@@ -697,7 +697,7 @@
                                     <img id="signature-preview" class="signature-preview" alt="Vista previa de la firma">
                                     <div class="signature-buttons">
                                     <button onclick="clearSignature()">Limpiar</button>
-                                    <button onclick="saveSignature()">Guardar Firma</button>
+                                    <button onclick="firmarPDF()">Firmar Documento</button>
                                     </div>
                                 </div>
                             </div>
@@ -1221,28 +1221,47 @@
                     return;
                 }
 
-                // Actualizar sharedData solo con los datos guardados
+                console.log('Datos recibidos de Supabase:', data);
+
+                // Actualizar sharedData con los datos guardados
                 if (data.data.excelData) {
                     sharedData.excelData = data.data.excelData;
+                    console.log('Datos de Excel cargados:', sharedData.excelData.length, 'filas');
                 }
+
                 if (data.data.pdfs) {
                     // Convertir Base64 a ArrayBuffer para los PDFs
                     for (const filename in data.data.pdfs) {
                         const base64 = data.data.pdfs[filename];
                         sharedData.pdfs[filename] = base64ToArrayBuffer(base64);
+                        console.log('PDF cargado:', filename);
                     }
                 }
 
-                // Mostrar datos del Excel si existen
+                // Actualizar la interfaz
                 if (sharedData.excelData && sharedData.excelData.length > 0) {
                     displayEmpleadosList();
+                    // Mostrar el primer empleado por defecto
+                    if (sharedData.excelData.length > 1) {
+                        showEmpleadoDetails(1);
+                    }
+                }
+
+                // Actualizar contador de PDFs
+                const pdfCount = Object.keys(sharedData.pdfs).length;
+                const pdfCountElement = document.getElementById('confirmador-pdf-count');
+                if (pdfCountElement) {
+                    pdfCountElement.textContent = pdfCount;
                 }
 
                 // Actualizar lista de PDFs
                 updateConfirmadorPDFList();
 
+                console.log('Carga de datos completada');
+
             } catch (error) {
                 console.error('Error al cargar datos del confirmador:', error);
+                alert('Error al cargar los datos. Por favor, intente nuevamente.');
             }
         }
 
@@ -1293,6 +1312,7 @@
             // Limpiar el contenedor
             pdfContainer.innerHTML = '';
             pdfName.textContent = filename;
+            currentPDF = filename;
 
             // Crear y mostrar el iframe
             const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
@@ -1300,9 +1320,26 @@
             const iframe = document.createElement('iframe');
             iframe.src = pdfUrl;
             iframe.style.width = '100%';
-            iframe.style.height = '100%';
+            iframe.style.height = 'calc(100% - 100px)'; // Ajustar altura para dejar espacio para el botón de firma
             iframe.style.border = 'none';
             pdfContainer.appendChild(iframe);
+
+            // Añadir contenedor de firma
+            const signatureContainer = document.createElement('div');
+            signatureContainer.className = 'signature-container';
+            signatureContainer.innerHTML = `
+                <h3>Firma Digital</h3>
+                <input type="file" id="signature-input" class="signature-input" accept="image/*">
+                <div id="signature-placeholder" class="signature-placeholder">
+                    Haga clic aquí para cargar su firma
+                </div>
+                <img id="signature-preview" class="signature-preview" alt="Vista previa de la firma">
+                <div class="signature-buttons">
+                    <button onclick="clearSignature()">Limpiar</button>
+                    <button onclick="firmarPDF()">Firmar Documento</button>
+                </div>
+            `;
+            pdfContainer.appendChild(signatureContainer);
 
             // Mostrar el visor
             pdfViewer.style.display = 'block';
@@ -1318,52 +1355,60 @@
 
         // Inicializar el sistema de firma
         document.addEventListener('DOMContentLoaded', function() {
-            const signatureInput = document.getElementById('signature-input');
-            const signaturePlaceholder = document.getElementById('signature-placeholder');
-            const signaturePreview = document.getElementById('signature-preview');
+            // Inicializar eventos de firma
+            initSignatureEvents();
+            
+            // Resto del código existente...
+        });
 
-            if (signaturePlaceholder) {
-                signaturePlaceholder.addEventListener('click', function() {
-                    signatureInput.click();
-                });
-            }
+        function initSignatureEvents() {
+            document.addEventListener('click', function(e) {
+                if (e.target.matches('#signature-placeholder')) {
+                    const signatureInput = document.querySelector('#signature-input');
+                    if (signatureInput) {
+                        signatureInput.click();
+                    }
+                }
+            });
 
-            if (signatureInput) {
-                signatureInput.addEventListener('change', function(e) {
+            document.addEventListener('change', function(e) {
+                if (e.target.matches('#signature-input')) {
                     const file = e.target.files[0];
                     if (file) {
                         const reader = new FileReader();
                         reader.onload = function(e) {
                             signatureData = e.target.result;
-                            if (signaturePreview) {
-                                signaturePreview.src = signatureData;
-                                signaturePreview.style.display = 'block';
-                                signaturePlaceholder.style.display = 'none';
+                            const preview = document.querySelector('#signature-preview');
+                            const placeholder = document.querySelector('#signature-placeholder');
+                            if (preview && placeholder) {
+                                preview.src = signatureData;
+                                preview.style.display = 'block';
+                                placeholder.style.display = 'none';
                             }
                         };
                         reader.readAsDataURL(file);
                     }
-                });
-            }
-        });
+                }
+            });
+        }
 
         // Función para limpiar la firma
         function clearSignature() {
-            const signaturePreview = document.getElementById('signature-preview');
-            const signaturePlaceholder = document.getElementById('signature-placeholder');
-            const signatureInput = document.getElementById('signature-input');
-
-            if (signaturePreview) {
-                signaturePreview.src = '';
-                signaturePreview.style.display = 'none';
-            }
-            if (signaturePlaceholder) {
-                signaturePlaceholder.style.display = 'flex';
-            }
-            if (signatureInput) {
-                signatureInput.value = '';
-            }
             signatureData = null;
+            const preview = document.querySelector('#signature-preview');
+            const placeholder = document.querySelector('#signature-placeholder');
+            const input = document.querySelector('#signature-input');
+            
+            if (preview) {
+                preview.src = '';
+                preview.style.display = 'none';
+            }
+            if (placeholder) {
+                placeholder.style.display = 'flex';
+            }
+            if (input) {
+                input.value = '';
+            }
         }
         
         // Función para guardar la firma
@@ -1376,21 +1421,40 @@
         }
         
         // Función para firmar el PDF
-        function firmarPDF() {
+        async function firmarPDF() {
             if (!currentPDF || !signatureData) {
                 alert('Por favor, seleccione un PDF y cargue una firma antes de firmar');
                 return;
             }
-            
-            // Aquí iría la lógica para añadir la firma al PDF
-            // Por ahora solo simulamos el proceso
-            signedPDFs[currentPDF] = {
-                pdf: sharedData.pdfs[currentPDF],
-                signature: signatureData
-            };
-            
-            alert('Documento firmado correctamente');
-            document.getElementById('download-signed-pdf').style.display = 'inline-block';
+
+            try {
+                const pdfDoc = await pdfjsLib.getDocument(sharedData.pdfs[currentPDF]).promise;
+                const numPages = pdfDoc.numPages;
+                
+                // Crear nuevo documento PDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                
+                // Cargar la firma como imagen
+                const img = new Image();
+                img.src = signatureData;
+                
+                // Esperar a que la imagen se cargue
+                await new Promise((resolve) => {
+                    img.onload = resolve;
+                });
+                
+                // Añadir la firma en la última página
+                doc.addImage(img, 'PNG', 20, doc.internal.pageSize.height - 60, 50, 30);
+                
+                // Guardar y descargar el PDF firmado
+                doc.save('documento_firmado.pdf');
+                
+                alert('Documento firmado correctamente');
+            } catch (error) {
+                console.error('Error al firmar el PDF:', error);
+                alert('Error al firmar el documento');
+            }
         }
         
         // Función para buscar PDFs (Confirmador)
