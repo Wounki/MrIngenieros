@@ -1897,12 +1897,19 @@
 
         // Función para aprobar todos los documentos
         async function aprobarTodosDocumentos() {
-            if (!signatureData) {
-                alert('Por favor, cargue una firma antes de aprobar los documentos');
-                return;
-            }
-
             try {
+                // Verificar si el usuario tiene permisos
+                if (!currentUser || currentUser.role !== 'confirmador') {
+                    alert('Solo los autorizadores pueden aprobar documentos.');
+                    return;
+                }
+
+                // Verificar firma
+                if (!signatureData) {
+                    alert('Por favor, cargue una firma antes de aprobar los documentos');
+                    return;
+                }
+
                 // Verificar si hay documentos para aprobar
                 if (!sharedData.excelData || sharedData.excelData.length <= 1) {
                     alert('No hay documentos para aprobar');
@@ -1911,24 +1918,91 @@
 
                 const headers = sharedData.excelData[0];
                 const estadoIndex = headers.indexOf('ESTADO');
+                const pdfIndex = headers.indexOf('PDF_ASOCIADO');
 
-                // Actualizar el estado de todos los documentos a AUTORIZADO
+                // Recopilar documentos pendientes
+                const pendingDocs = [];
                 for (let i = 1; i < sharedData.excelData.length; i++) {
-                    if (sharedData.excelData[i]) {
-                        sharedData.excelData[i][estadoIndex] = 'AUTORIZADO';
+                    const row = sharedData.excelData[i];
+                    if (row && row[estadoIndex] === 'PENDIENTE' && row[pdfIndex]) {
+                        pendingDocs.push({
+                            rowIndex: i,
+                            pdfName: row[pdfIndex]
+                        });
                     }
                 }
 
-                // Guardar los cambios en Supabase
+                if (pendingDocs.length === 0) {
+                    alert('No hay documentos pendientes para aprobar');
+                    return;
+                }
+
+                // Procesar cada PDF
+                const zip = new JSZip();
+                for (const doc of pendingDocs) {
+                    try {
+                        const pdfData = sharedData.pdfs[doc.pdfName];
+                        if (!pdfData) continue;
+
+                        // Cargar el PDF
+                        const pdfDoc = await pdfjsLib.getDocument(pdfData).promise;
+                        const numPages = pdfDoc.numPages;
+
+                        // Crear nuevo documento PDF con firma
+                        const { jsPDF } = window.jspdf;
+                        const newPdf = new jsPDF();
+
+                        // Añadir la firma en la última página
+                        const img = new Image();
+                        img.src = signatureData;
+                        await new Promise((resolve) => { img.onload = resolve; });
+                        
+                        newPdf.addImage(
+                            img, 
+                            'PNG', 
+                            newPdf.internal.pageSize.width - 70, 
+                            newPdf.internal.pageSize.height - 60, 
+                            50, 
+                            30
+                        );
+
+                        // Añadir al ZIP
+                        const pdfBytes = newPdf.output('arraybuffer');
+                        zip.file(`firmado_${doc.pdfName}`, pdfBytes);
+
+                        // Actualizar estado en Excel
+                        sharedData.excelData[doc.rowIndex][estadoIndex] = 'AUTORIZADO';
+                    } catch (error) {
+                        console.error(`Error al procesar PDF ${doc.pdfName}:`, error);
+                    }
+                }
+
+                // Añadir Excel actualizado al ZIP
+                const workbook = XLSX.utils.book_new();
+                const worksheet = XLSX.utils.aoa_to_sheet(sharedData.excelData);
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Documentos');
+                const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                zip.file('documentos_actualizados.xlsx', excelBuffer);
+
+                // Generar y descargar ZIP
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                const url = window.URL.createObjectURL(zipBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'documentos_aprobados.zip';
+                a.click();
+                window.URL.revokeObjectURL(url);
+
+                // Guardar cambios en Supabase
                 await saveToSupabase();
 
-                // Actualizar la interfaz
-                document.getElementById('estado-message').textContent = 'Estado: Todos los documentos han sido autorizados';
-                alert('Todos los documentos han sido aprobados exitosamente');
+                // Actualizar interfaz
+                document.getElementById('estado-message').textContent = 'Estado: Documentos autorizados y descargados exitosamente';
+                alert('Todos los documentos han sido aprobados y descargados exitosamente');
 
             } catch (error) {
                 console.error('Error al aprobar los documentos:', error);
-                alert('Error al aprobar los documentos. Por favor, intente nuevamente.');
+                alert('Error al aprobar los documentos: ' + error.message);
             }
         }
     </script>
