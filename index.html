@@ -7,16 +7,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- Añadir Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
         const { createClient } = window.supabase;
     </script>
     
-    <!-- Agregar Microsoft Graph SDK -->
-    <script src="https://alcdn.msauth.net/browser/2.0.0/js/msal-browser.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@microsoft/microsoft-graph-client/lib/graph-js-sdk.js"></script>
-
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -584,7 +579,6 @@
         </div>
         
         <!-- Dashboard para el usuario Revisor (RH) -->
-        <!-- Panel de Revisor -->
         <div class="dashboard" id="revisor-dashboard">
             <div class="header">
                 <h1>Panel de Control - Revisor RH</h1>
@@ -785,20 +779,16 @@
         // Initialize Supabase client
         let supabase;
         try {
-            supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                auth: {
+                    autoRefreshToken: true,
+                    persistSession: true
+                }
+            });
             console.log('Supabase initialized successfully');
         } catch (error) {
             console.error('Error initializing Supabase:', error);
         }
-
-        // Variables globales para datos compartidos
-        let sharedData = {
-            excelData: null,
-            currentRowIndex: 1,
-            filteredRows: [],
-            savedChanges: false,
-            pdfs: {}
-        };
 
         // Variables globales
         let currentUser = null;
@@ -806,9 +796,14 @@
         let currentPDF = null;
         let signatureData = null;
         let signedPDFs = {};
-        let activeUsers = new Set();
-        let currentEditingUsers = {};
-        let currentUserSession = null;
+
+        // Datos compartidos
+        let sharedData = {
+            excelData: null,
+            currentRowIndex: 1,
+            filteredRows: [],
+            pdfs: {}
+        };
 
         // Configuración de usuarios
         const users = {
@@ -821,97 +816,8 @@
                 role: "confirmador"
             }
         };
-        
-        // Configuración de Microsoft Graph
-        const graphConfig = {
-            clientId: '',     // Configurar mediante variables de entorno
-            clientSecret: '', // Configurar mediante variables de entorno
-            tenantId: '',     // Configurar mediante variables de entorno
-            scope: 'https://graph.microsoft.com/.default'
-        };
 
-        let graphClient = null;
-
-        // Función para obtener token de acceso
-        async function getAccessToken() {
-            const tokenEndpoint = `https://login.microsoftonline.com/${graphConfig.tenantId}/oauth2/v2.0/token`;
-            const body = new URLSearchParams({
-                client_id: graphConfig.clientId,
-                client_secret: graphConfig.clientSecret,
-                scope: graphConfig.scope,
-                grant_type: 'client_credentials'
-            });
-
-            try {
-                const response = await fetch(tokenEndpoint, {
-                    method: 'POST',
-                    body: body,
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('Error al obtener el token');
-                }
-
-                const data = await response.json();
-                return data.access_token;
-            } catch (error) {
-                console.error('Error al obtener token:', error);
-                return null;
-            }
-        }
-
-        // Función para inicializar Microsoft Graph
-        async function initializeOneDrive() {
-            try {
-                const accessToken = await getAccessToken();
-                if (!accessToken) {
-                    throw new Error('No se pudo obtener el token de acceso');
-                }
-
-                // Inicializar el cliente de Graph
-                const graphClient = MicrosoftGraph.Client.init({
-                    authProvider: (done) => {
-                        done(null, accessToken);
-                    }
-                });
-
-                return graphClient;
-            } catch (error) {
-                console.error('Error al inicializar OneDrive:', error);
-                return null;
-            }
-        }
-
-        // Modificar la función loadExcelFromOneDrive para usar el nuevo cliente
-        async function loadExcelFromOneDrive() {
-            try {
-                const graphClient = await initializeOneDrive();
-                if (!graphClient) {
-                    throw new Error('No se pudo inicializar el cliente de Graph');
-                }
-
-                const response = await graphClient
-                    .api('/me/drive/root:/MR_INGENIEROS/Contratos_Empleados.xlsx:/content')
-                    .get();
-
-                const data = await response.arrayBuffer();
-                const workbook = XLSX.read(data, { type: 'array' });
-                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                return XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-            } catch (error) {
-                if (error.statusCode === 404) {
-                    console.log('Archivo no encontrado en OneDrive, se creará uno nuevo');
-                    return null;
-                }
-                console.error('Error al cargar desde OneDrive:', error);
-                return null;
-            }
-        }
-
-        // Modificar la función loadExcel
+        // Función para cargar Excel
         async function loadExcel() {
             const fileInput = document.getElementById('excel-file');
             const file = fileInput.files[0];
@@ -923,31 +829,14 @@
             
             try {
                 const reader = new FileReader();
-                
                 reader.onload = async function(e) {
                     try {
                         const data = new Uint8Array(e.target.result);
                         workbook = XLSX.read(data, { type: 'array' });
                         
                         const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                        const newData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-
-                        // Cargar datos existentes de OneDrive
-                        const existingData = await loadExcelFromOneDrive();
+                        sharedData.excelData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
                         
-                        if (existingData) {
-                            // Combinar datos existentes con nuevos (excluyendo encabezados duplicados)
-                            const headers = existingData[0];
-                            const newRows = newData.slice(1);
-                            sharedData.excelData = [...existingData, ...newRows];
-                        } else {
-                            sharedData.excelData = newData;
-                        }
-
-                        // Guardar datos combinados en OneDrive
-                        await saveExcelToOneDrive(sharedData.excelData);
-                        
-                        // Inicializar filteredRows
                         sharedData.filteredRows = Array.from(
                             { length: sharedData.excelData.length - 1 }, 
                             (_, i) => i + 1
@@ -960,7 +849,7 @@
                         displayExcelRow();
                         
                         await saveToSupabase();
-                        console.log('Excel actualizado en OneDrive y Supabase');
+                        console.log('Excel guardado en Supabase');
                         
                     } catch (error) {
                         console.error('Error al procesar el Excel:', error);
@@ -976,15 +865,10 @@
             }
         }
 
-        // Modificar la función saveChanges
+        // Función para guardar cambios
         async function saveChanges() {
             try {
-                // Guardar en OneDrive
-                await saveExcelToOneDrive(sharedData.excelData);
-                
-                // Guardar en Supabase
                 await saveToSupabase();
-                
                 alert('Cambios guardados correctamente.');
             } catch (error) {
                 console.error('Error al guardar cambios:', error);
@@ -995,21 +879,19 @@
         // Función para guardar datos en Supabase
         async function saveToSupabase() {
             try {
-                // Convertir ArrayBuffer a Base64 para los PDFs
-                const pdfsToStore = {};
-                for (const filename in sharedData.pdfs) {
-                    const arrayBuffer = sharedData.pdfs[filename];
-                    const base64 = arrayBufferToBase64(arrayBuffer);
-                    pdfsToStore[filename] = base64;
-                }
-
                 const dataToStore = {
-                    ...sharedData,
-                    pdfs: pdfsToStore,
+                    excelData: sharedData.excelData,
+                    pdfs: {},
                     last_updated: new Date().toISOString()
                 };
 
-                // Actualizar o insertar datos en Supabase
+                // Convertir ArrayBuffer a Base64 para los PDFs
+                for (const filename in sharedData.pdfs) {
+                    const arrayBuffer = sharedData.pdfs[filename];
+                    const base64 = arrayBufferToBase64(arrayBuffer);
+                    dataToStore.pdfs[filename] = base64;
+                }
+
                 const { data, error } = await supabase
                     .from('shared_data')
                     .upsert([
@@ -1644,62 +1526,50 @@
             }
         }
 
-        // Función para actualizar la lista de usuarios en línea
-        function updateOnlineUsers(state) {
-            const userList = Object.values(state).flat();
-            activeUsers = new Set(userList.map(u => u.user_id));
-            updateOnlineUsersDisplay();
-        }
+        // Función para mostrar los empleados en la lista
+        function displayEmpleadosList() {
+            const empleadosList = document.getElementById('empleados-list');
+            if (!empleadosList || !sharedData.excelData || sharedData.excelData.length <= 1) return;
 
-        // Función para actualizar el estado de un usuario
-        function updateUserStatus(userId, isOnline) {
-            if (isOnline) {
-                activeUsers.add(userId);
-                } else {
-                activeUsers.delete(userId);
+            empleadosList.innerHTML = '';
+            const headers = sharedData.excelData[0];
+            const nombreIndex = headers.findIndex(h => h === 'NOMBRES Y APELLIDOS');
+            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
+
+            for (let i = 1; i < sharedData.excelData.length; i++) {
+                const row = sharedData.excelData[i];
+                if (!row) continue;
+
+                const empleadoCard = document.createElement('div');
+                empleadoCard.className = 'empleado-card';
+                empleadoCard.innerHTML = `
+                    <div class="empleado-nombre">${row[nombreIndex] || 'Sin nombre'}</div>
+                    <div class="empleado-estado">${row[estadoIndex] || 'SIN REVISION'}</div>
+                `;
+                empleadoCard.onclick = () => showEmpleadoDetails(i);
+                empleadosList.appendChild(empleadoCard);
             }
-            updateOnlineUsersDisplay();
         }
 
-        // Función para mostrar usuarios en línea
-        function updateOnlineUsersDisplay() {
-            const statusContainer = document.getElementById('online-users');
-            if (!statusContainer) return;
-
-            statusContainer.innerHTML = Array.from(activeUsers).map(userId => `
-                <div class="user-status">
-                    <span class="status-indicator status-online"></span>
-                    ${userId}
-                </div>
-            `).join('');
-        }
-
-        // Función para actualizar el estado de edición
-        function updateEditingStatus(payload) {
-            if (!payload || !payload.user || !payload.editing) return;
-
-            const { user, editing } = payload;
-            
-            if (editing) {
-                currentEditingUsers[user] = true;
-            } else {
-                delete currentEditingUsers[user];
+        // Función para convertir ArrayBuffer a Base64
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
             }
-
-            updateEditingIndicator();
+            return window.btoa(binary);
         }
 
-        // Función para mostrar indicador de edición
-        function updateEditingIndicator() {
-            const indicator = document.createElement('div');
-            indicator.className = 'editing-indicator';
-            indicator.textContent = 'Edición en curso';
-            
-            document.body.appendChild(indicator);
-            
-            setTimeout(() => {
-                indicator.remove();
-            }, 3000);
+        // Función para convertir Base64 a ArrayBuffer
+        function base64ToArrayBuffer(base64) {
+            const binary_string = window.atob(base64);
+            const len = binary_string.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+            }
+            return bytes.buffer;
         }
 
         // Función de inicio de sesión
@@ -1788,31 +1658,6 @@
             }
         }
 
-        // Función para mostrar los empleados en la lista
-        function displayEmpleadosList() {
-            const empleadosList = document.getElementById('empleados-list');
-            if (!empleadosList || !sharedData.excelData || sharedData.excelData.length <= 1) return;
-
-            empleadosList.innerHTML = '';
-            const headers = sharedData.excelData[0];
-            const nombreIndex = headers.findIndex(h => h === 'NOMBRES Y APELLIDOS');
-            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
-
-            for (let i = 1; i < sharedData.excelData.length; i++) {
-                const row = sharedData.excelData[i];
-                if (!row) continue;
-
-                const empleadoCard = document.createElement('div');
-                empleadoCard.className = 'empleado-card';
-                empleadoCard.innerHTML = `
-                    <div class="empleado-nombre">${row[nombreIndex] || 'Sin nombre'}</div>
-                    <div class="empleado-estado">${row[estadoIndex] || 'SIN REVISION'}</div>
-                `;
-                empleadoCard.onclick = () => showEmpleadoDetails(i);
-                empleadosList.appendChild(empleadoCard);
-            }
-        }
-
         // Función para inicializar la suscripción a cambios en tiempo real
         function initRealtimeSubscription() {
             if (currentUser && currentUser.role === 'confirmador') {
@@ -1831,27 +1676,6 @@
                     )
                     .subscribe();
             }
-        }
-
-        // Función para convertir ArrayBuffer a Base64
-        function arrayBufferToBase64(buffer) {
-            let binary = '';
-            const bytes = new Uint8Array(buffer);
-            for (let i = 0; i < bytes.byteLength; i++) {
-                binary += String.fromCharCode(bytes[i]);
-            }
-            return window.btoa(binary);
-        }
-
-        // Función para convertir Base64 a ArrayBuffer
-        function base64ToArrayBuffer(base64) {
-            const binary_string = window.atob(base64);
-            const len = binary_string.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binary_string.charCodeAt(i);
-            }
-            return bytes.buffer;
         }
     </script>
 </body>
