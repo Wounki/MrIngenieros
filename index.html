@@ -560,6 +560,51 @@
         .search-btn:hover {
             background-color: #45a049;
         }
+
+        .empleado-card {
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .empleado-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .empleado-card.sin-revision {
+            background-color: #ffebee;
+        }
+
+        .empleado-card.pendiente {
+            background-color: #fff3e0;
+        }
+
+        .empleado-card.revisado {
+            background-color: #e8f5e9;
+        }
+
+        .empleado-card.autorizado {
+            background-color: #e3f2fd;
+        }
+
+        .firma-btn {
+            margin-top: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .firma-btn:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -865,11 +910,33 @@
             }
         }
 
-        // Función para guardar cambios
+        // Función para guardar cambios del revisor
         async function saveChanges() {
             try {
+                // Añadir información de revisión
+                if (!sharedData.excelData[0].includes('ESTADO')) {
+                    sharedData.excelData[0].push('ESTADO');
+                    sharedData.excelData[0].push('PDF_ASOCIADO');
+                }
+
+                // Actualizar el estado de las filas y asociar PDFs
+                for (let i = 1; i < sharedData.excelData.length; i++) {
+                    if (!sharedData.excelData[i]) continue;
+                    
+                    // Si no existe el campo de estado, añadirlo
+                    if (sharedData.excelData[i].length <= sharedData.excelData[0].length - 2) {
+                        sharedData.excelData[i].push('PENDIENTE');
+                        
+                        // Asociar PDF si existe uno con nombre similar
+                        const nombreEmpleado = sharedData.excelData[i][sharedData.excelData[0].indexOf('NOMBRES Y APELLIDOS')];
+                        const pdfAsociado = Object.keys(sharedData.pdfs).find(filename => 
+                            filename.toLowerCase().includes(nombreEmpleado.toLowerCase().split(' ')[0]));
+                        sharedData.excelData[i].push(pdfAsociado || '');
+                    }
+                }
+
                 await saveToSupabase();
-                alert('Cambios guardados correctamente.');
+                alert('Cambios guardados correctamente. Los documentos están listos para ser revisados por la Directora RH.');
             } catch (error) {
                 console.error('Error al guardar cambios:', error);
                 alert('Error al guardar los cambios. Por favor, intente nuevamente.');
@@ -1143,17 +1210,22 @@
             }
         }
 
-        // Función para mostrar detalles del empleado
+        // Función para mostrar detalles del empleado y su PDF asociado
         function showEmpleadoDetails(rowIndex) {
             if (!sharedData.excelData || !sharedData.excelData[rowIndex]) return;
 
             const headers = sharedData.excelData[0];
             const rowData = sharedData.excelData[rowIndex];
             const content = document.getElementById('confirmador-row-content');
+            const pdfContainer = document.getElementById('confirmador-pdf-list-content');
+            
+            // Limpiar contenedores
             content.innerHTML = '';
+            pdfContainer.innerHTML = '';
 
+            // Mostrar datos del empleado
             headers.forEach((header, index) => {
-                if (header === 'ESTADO') return; // Omitir el campo ESTADO aquí
+                if (header === 'ESTADO' || header === 'PDF_ASOCIADO') return;
 
                 const div = document.createElement('div');
                 div.className = 'form-group';
@@ -1164,16 +1236,35 @@
                 content.appendChild(div);
             });
 
-            // Actualizar el select de estado
-            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
+            // Actualizar estado
+            const estadoIndex = headers.indexOf('ESTADO');
             const estadoSelect = document.getElementById('estado-select');
-            estadoSelect.value = rowData[estadoIndex] || 'SIN REVISION';
-            estadoSelect.dataset.rowIndex = rowIndex;
+            if (estadoSelect) {
+                estadoSelect.value = rowData[estadoIndex] || 'SIN REVISION';
+                estadoSelect.dataset.rowIndex = rowIndex;
+            }
 
-            // Marcar la tarjeta seleccionada
-            document.querySelectorAll('.empleado-card').forEach((card, i) => {
-                card.classList.toggle('selected', i === rowIndex - 1);
-            });
+            // Mostrar PDF asociado
+            const pdfIndex = headers.indexOf('PDF_ASOCIADO');
+            const pdfAsociado = rowData[pdfIndex];
+            
+            if (pdfAsociado && sharedData.pdfs[pdfAsociado]) {
+                const pdfCard = document.createElement('div');
+                pdfCard.className = 'pdf-thumbnail';
+                pdfCard.innerHTML = `
+                    <div style="width: 100px; height: 140px; background-color: #f5f5f5; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd; cursor: pointer;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 40px; color: #666;">📄</div>
+                            <div style="font-size: 12px; color: #666;">PDF</div>
+                        </div>
+                    </div>
+                    <div>${pdfAsociado}</div>
+                    <button onclick="displayConfirmadorPDF('${pdfAsociado}')" class="firma-btn">Ver y Firmar</button>
+                `;
+                pdfContainer.appendChild(pdfCard);
+            } else {
+                pdfContainer.innerHTML = '<p>No hay PDF asociado a este empleado</p>';
+            }
         }
 
         // Función para actualizar el estado
@@ -1597,18 +1688,20 @@
 
             empleadosList.innerHTML = '';
             const headers = sharedData.excelData[0];
-            const nombreIndex = headers.findIndex(h => h === 'NOMBRES Y APELLIDOS');
-            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
+            const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
+            const estadoIndex = headers.indexOf('ESTADO');
 
             for (let i = 1; i < sharedData.excelData.length; i++) {
                 const row = sharedData.excelData[i];
                 if (!row) continue;
 
+                const estado = row[estadoIndex] || 'SIN REVISION';
                 const empleadoCard = document.createElement('div');
                 empleadoCard.className = 'empleado-card';
+                empleadoCard.classList.add(estado.toLowerCase().replace(' ', '-'));
                 empleadoCard.innerHTML = `
                     <div class="empleado-nombre">${row[nombreIndex] || 'Sin nombre'}</div>
-                    <div class="empleado-estado">${row[estadoIndex] || 'SIN REVISION'}</div>
+                    <div class="empleado-estado">${estado}</div>
                 `;
                 empleadoCard.onclick = () => showEmpleadoDetails(i);
                 empleadosList.appendChild(empleadoCard);
