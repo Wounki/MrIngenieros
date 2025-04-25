@@ -918,35 +918,45 @@
         // Función para actualizar la lista de PDFs del confirmador
         function updateConfirmadorPDFList() {
             const pdfListContent = document.getElementById('confirmador-pdf-list-content');
-            if (!pdfListContent) return;
-            console.log('Actualizando lista de PDFs del confirmador');
-            console.log('Elemento encontrado:', pdfListContent);
-            console.log('PDFs disponibles:', sharedData.pdfs);
-    
-
+            if (!pdfListContent) {
+                console.error('No se encontró el contenedor de la lista de PDFs');
+                return;
+            }
+            
+            console.log('Actualizando lista de PDFs');
             pdfListContent.innerHTML = '';
-            const pdfs = sharedData.pdfs;
-            const pdfCount = Object.keys(pdfs).length;
+            
+            if (!sharedData.pdfs || Object.keys(sharedData.pdfs).length === 0) {
+                pdfListContent.innerHTML = '<p style="text-align: center; padding: 20px;">No hay PDFs disponibles</p>';
+                return;
+            }
 
-            if (pdfCount > 0) {
-                console.log('PDFs encontrados:', Object.keys(pdfs));
-                Object.keys(pdfs).forEach(filename => {
-                    const thumbnail = document.createElement('div');
-                    thumbnail.className = 'pdf-thumbnail';
-                    thumbnail.innerHTML = `
-                        <div style="width: 100px; height: 140px; background-color: #f5f5f5; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd; cursor: pointer;">
-                            <div style="text-align: center;">
-                                <div style="font-size: 40px; color: #666;">📄</div>
-                                <div style="font-size: 12px; color: #666;">PDF</div>
-                            </div>
+            Object.keys(sharedData.pdfs).forEach(filename => {
+                const thumbnail = document.createElement('div');
+                thumbnail.className = 'pdf-thumbnail';
+                thumbnail.style.cursor = 'pointer';
+                thumbnail.innerHTML = `
+                    <div style="width: 100px; height: 140px; background-color: #f5f5f5; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 40px; color: #666;">📄</div>
+                            <div style="font-size: 12px; color: #666; word-break: break-word; padding: 0 5px;">${filename}</div>
                         </div>
-                        <div style="margin-top: 5px; text-align: center; font-size: 12px;">${filename}</div>
-                    `;
-                    thumbnail.onclick = () => displayConfirmadorPDF(filename);
-                    pdfListContent.appendChild(thumbnail);
+                    </div>
+                `;
+                
+                thumbnail.addEventListener('click', () => {
+                    console.log('Clic en PDF:', filename);
+                    displayConfirmadorPDF(filename);
                 });
-            } else {
-                pdfListContent.innerHTML = '<p style="text-align: center; color: #666;">No hay PDFs disponibles</p>';
+                
+                pdfListContent.appendChild(thumbnail);
+            });
+
+            // Actualizar el contador de PDFs
+            const pdfCount = Object.keys(sharedData.pdfs).length;
+            const pdfCountElement = document.getElementById('confirmador-pdf-count');
+            if (pdfCountElement) {
+                pdfCountElement.textContent = pdfCount;
             }
         }
 
@@ -1045,50 +1055,62 @@
         // Función para mostrar PDF en el visor del confirmador
         async function displayConfirmadorPDF(filename) {
             try {
+                console.log('Abriendo PDF:', filename);
+                
+                // Verificar que el PDF existe en sharedData
                 const pdfData = sharedData.pdfs[filename];
                 if (!pdfData) {
-                    throw new Error('PDF no encontrado');
+                    throw new Error('PDF no encontrado en sharedData');
                 }
 
+                // Crear Blob y URL del PDF
                 const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
                 const pdfUrl = URL.createObjectURL(pdfBlob);
 
                 // Obtener la URL de la firma
                 const firmaUrl = await cargarFirmaDesdeStorage();
                 if (!firmaUrl) {
-                    throw new Error('No se pudo cargar la firma');
+                    console.warn('No se pudo cargar la firma');
                 }
 
-                // Mostrar el visor de PDF
+                // Obtener referencias a los elementos del DOM
                 const pdfViewer = document.getElementById('confirmador-pdf-viewer');
                 const pdfContainer = document.getElementById('confirmador-pdf-container');
                 const currentPdfName = document.getElementById('confirmador-current-pdf-name');
 
                 if (!pdfViewer || !pdfContainer || !currentPdfName) {
-                    throw new Error('Elementos del visor no encontrados');
+                    throw new Error('No se encontraron los elementos necesarios en el DOM');
                 }
 
+                // Actualizar el nombre del PDF
                 currentPdfName.textContent = filename;
+
+                // Construir el contenido del visor
                 pdfContainer.innerHTML = `
-                    <div class="pdf-display">
-                        <embed src="${pdfUrl}" type="application/pdf" width="100%" height="600px">
+                    <div class="pdf-display" style="margin-bottom: 20px;">
+                        <iframe src="${pdfUrl}" type="application/pdf" width="100%" height="600px" style="border: 1px solid #ccc;"></iframe>
                     </div>
-                    <div class="signature-section" style="margin-top: 20px; text-align: center;">
-                        <h3>Firma Digital</h3>
-                        <img src="${firmaUrl}" alt="Firma" style="max-width: 200px; margin: 10px 0; border: 1px solid #ccc;">
-                        <div style="margin-top: 10px;">
-                            <button onclick="firmarPDFConfirmador('${filename}')" class="btn-primary" style="padding: 10px 20px;">
-                                Firmar Documento
-                            </button>
+                    ${firmaUrl ? `
+                        <div class="signature-section" style="margin-top: 20px; text-align: center;">
+                            <h3>Firma Digital</h3>
+                            <img src="${firmaUrl}" alt="Firma" style="max-width: 200px; margin: 10px 0; border: 1px solid #ccc;">
+                            <div style="margin-top: 10px;">
+                                <button onclick="firmarPDFConfirmador('${filename}')" class="btn-primary" style="padding: 10px 20px;">
+                                    Firmar Documento
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    ` : ''}
                 `;
 
+                // Mostrar el visor
                 pdfViewer.style.display = 'block';
+
+                console.log('PDF cargado exitosamente');
 
             } catch (error) {
                 console.error('Error al mostrar el PDF:', error);
-                alert('Error al cargar el PDF o la firma: ' + error.message);
+                alert('Error al cargar el PDF: ' + error.message);
             }
         }
 
