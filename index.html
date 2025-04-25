@@ -1520,34 +1520,54 @@
             }
         }
 
-        function mostrarPDFConfirmador(filename) {
+        async function displayConfirmadorPDF(filename) {
             try {
-                console.log('Mostrando PDF:', filename);
+                console.log('Intentando mostrar PDF:', filename);
+                
+                // Obtener los datos del PDF
                 const pdfData = sharedData.pdfs[filename];
                 if (!pdfData) {
-                    throw new Error('PDF no encontrado');
+                    throw new Error('PDF no encontrado en sharedData.pdfs');
                 }
 
+                // Crear Blob y URL
                 const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
                 const pdfUrl = URL.createObjectURL(pdfBlob);
-                
-                const visor = document.getElementById('confirmador-pdf-viewer');
-                const contenedor = document.getElementById('confirmador-pdf-container');
-                const nombre = document.getElementById('confirmador-current-pdf-name');
-                
-                nombre.textContent = filename;
-                contenedor.innerHTML = `
-                    <iframe src="${pdfUrl}" width="100%" height="600px" style="border: 1px solid #ccc;"></iframe>
-                    <div style="margin-top: 20px; text-align: center;">
+
+                // Obtener elementos del DOM
+                const pdfViewer = document.getElementById('confirmador-pdf-viewer');
+                const pdfContainer = document.getElementById('confirmador-pdf-container');
+                const pdfName = document.getElementById('confirmador-current-pdf-name');
+
+                if (!pdfViewer || !pdfContainer || !pdfName) {
+                    throw new Error('No se encontraron los elementos necesarios en el DOM');
+                }
+
+                // Actualizar el nombre del PDF
+                pdfName.textContent = filename;
+
+                // Crear el iframe para mostrar el PDF
+                pdfContainer.innerHTML = `
+                    <iframe 
+                        src="${pdfUrl}#toolbar=0&navpanes=0" 
+                        width="100%" 
+                        height="600px" 
+                        style="border: 1px solid #ccc;"
+                    ></iframe>
+                    <div class="firma-container" style="margin-top: 20px;">
                         <button onclick="firmarPDFConfirmador('${filename}')" class="btn btn-primary">
                             Firmar Documento
                         </button>
                     </div>
                 `;
-                
-                visor.style.display = 'block';
+
+                // Mostrar el visor
+                pdfViewer.style.display = 'block';
+
+                console.log('PDF mostrado exitosamente');
+
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error al mostrar el PDF:', error);
                 alert('Error al mostrar el PDF: ' + error.message);
             }
         }
