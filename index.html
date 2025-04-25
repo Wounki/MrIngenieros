@@ -957,9 +957,6 @@
                     throw new Error('PDF no encontrado');
                 }
 
-                // URL pública de la firma
-                const firmaUrl = 'https://ixhsjtsilnfhuzgvkyve.supabase.co/storage/v1/object/public/firmas/firma.png';
-                
                 // Obtener el PDF original
                 const pdfData = sharedData.pdfs[filename];
                 
@@ -968,14 +965,19 @@
                     const pdfDoc = await pdfjsLib.getDocument(pdfData).promise;
                     const numPages = pdfDoc.numPages;
 
-                    // Cargar la firma como blob
-                    const response = await fetch(firmaUrl);
-                    if (!response.ok) {
-                        throw new Error('No se pudo cargar la imagen de la firma');
+                    // Obtener la firma directamente desde Supabase Storage
+                    const { data: firmaData, error: firmaError } = await supabase
+                        .storage
+                        .from('firmas')
+                        .download('firma.png');
+
+                    if (firmaError) {
+                        throw new Error('No se pudo obtener la firma: ' + firmaError.message);
                     }
-                    const blob = await response.blob();
+
+                    // Convertir el blob de la firma a una URL
+                    const imageUrl = URL.createObjectURL(firmaData);
                     const img = new Image();
-                    const imageUrl = URL.createObjectURL(blob);
                     
                     await new Promise((resolve, reject) => {
                         img.onload = resolve;
@@ -1076,7 +1078,7 @@
         }
 
         // Función para mostrar PDF en el visor del confirmador
-        function displayConfirmadorPDF(filename) {
+        async function displayConfirmadorPDF(filename) {
             console.log('Mostrando PDF:', filename);
             const pdfData = sharedData.pdfs[filename];
             if (!pdfData) {
@@ -1084,50 +1086,72 @@
                 return;
             }
 
-            // Crear o obtener el contenedor del visor de PDF
-            let pdfViewer = document.getElementById('pdf-viewer-modal');
-            if (!pdfViewer) {
-                pdfViewer = document.createElement('div');
-                pdfViewer.id = 'pdf-viewer-modal';
-                pdfViewer.className = 'pdf-viewer-modal';
-                document.body.appendChild(pdfViewer);
-            }
+            try {
+                // Obtener la firma desde Supabase
+                const { data: firmaData, error: firmaError } = await supabase
+                    .storage
+                    .from('firmas')
+                    .download('firma.png');
 
-            // URL pública de la firma
-            const firmaUrl = 'https://ixhsjtsilnfhuzgvkyve.supabase.co/storage/v1/object/public/firmas/firma.png';
+                if (firmaError) {
+                    throw new Error('No se pudo obtener la firma');
+                }
 
-            // Actualizar el contenido del visor
-            pdfViewer.innerHTML = `
-                <div class="pdf-viewer-content">
-                    <div class="pdf-viewer-header">
-                        <h3>${filename}</h3>
-                        <button onclick="closePDFViewer()" class="close-btn">&times;</button>
-                    </div>
-                    <div class="pdf-container" id="pdf-container-modal"></div>
-                    <div class="firma-section">
-                        <h4>Firma Digital</h4>
-                        <div class="firma-preview">
-                            <img src="${firmaUrl}" alt="Firma" style="max-width: 200px; border: 1px solid #ddd; padding: 10px;">
+                // Crear o obtener el contenedor del visor de PDF
+                let pdfViewer = document.getElementById('pdf-viewer-modal');
+                if (!pdfViewer) {
+                    pdfViewer = document.createElement('div');
+                    pdfViewer.id = 'pdf-viewer-modal';
+                    pdfViewer.className = 'pdf-viewer-modal';
+                    document.body.appendChild(pdfViewer);
+                }
+
+                // Convertir el blob de la firma a una URL
+                const firmaUrl = URL.createObjectURL(firmaData);
+
+                // Actualizar el contenido del visor
+                pdfViewer.innerHTML = `
+                    <div class="pdf-viewer-content">
+                        <div class="pdf-viewer-header">
+                            <h3>${filename}</h3>
+                            <button onclick="closePDFViewer()" class="close-btn">&times;</button>
                         </div>
-                        <button onclick="firmarPDFConfirmador('${filename}')" class="firma-btn">Firmar Documento</button>
+                        <div class="pdf-container" id="pdf-container-modal"></div>
+                        <div class="firma-section">
+                            <h4>Firma Digital</h4>
+                            <div class="firma-preview">
+                                <img src="${firmaUrl}" alt="Firma" style="max-width: 200px; border: 1px solid #ddd; padding: 10px;">
+                            </div>
+                            <button onclick="firmarPDFConfirmador('${filename}')" class="firma-btn">Firmar Documento</button>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
 
-            // Mostrar el visor
-            pdfViewer.style.display = 'flex';
+                // Mostrar el visor
+                pdfViewer.style.display = 'flex';
 
-            // Cargar el PDF en el visor
-            const pdfBlob = new Blob([pdfData], {type: 'application/pdf'});
-            const pdfUrl = URL.createObjectURL(pdfBlob);
-            const container = document.getElementById('pdf-container-modal');
-            
-            const iframe = document.createElement('iframe');
-            iframe.src = pdfUrl;
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            container.appendChild(iframe);
+                // Cargar el PDF en el visor
+                const pdfBlob = new Blob([pdfData], {type: 'application/pdf'});
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                const container = document.getElementById('pdf-container-modal');
+                
+                const iframe = document.createElement('iframe');
+                iframe.src = pdfUrl;
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                container.appendChild(iframe);
+
+                // Limpiar URL cuando se cierre el visor
+                pdfViewer.addEventListener('hidden.bs.modal', function () {
+                    URL.revokeObjectURL(firmaUrl);
+                    URL.revokeObjectURL(pdfUrl);
+                });
+
+            } catch (error) {
+                console.error('Error al mostrar el PDF:', error);
+                alert('Error al mostrar el documento: ' + error.message);
+            }
         }
 
         // Inicializar el sistema de firma
