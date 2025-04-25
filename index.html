@@ -8,7 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="signature.js"></script>
+    <script src="firma.js"></script>
     <script>
         const { createClient } = window.supabase;
     </script>
@@ -978,6 +978,27 @@
         .firma-btn:hover {
             background-color: #45a049;
         }
+
+        .firma-container {
+            width: 300px;
+            margin: 20px auto;
+            text-align: center;
+        }
+
+        .firma-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+
+        .firma-btn:hover {
+            background-color: #45a049;
+        }
     </style>
 </head>
 <body>
@@ -1934,55 +1955,41 @@
                 document.body.appendChild(pdfViewer);
             }
 
-            // Actualizar el contenido del visor
-            pdfViewer.innerHTML = `
-                <div class="pdf-viewer-content">
-                    <div class="pdf-viewer-header">
-                        <h3>${filename}</h3>
-                        <button onclick="closePDFViewer()" class="close-btn">&times;</button>
-                    </div>
-                    <div class="pdf-container" id="pdf-container-modal"></div>
-                    <div class="firma-section">
-                        <div class="signature-preview-container">
-                            <input type="file" id="signature-input" class="signature-input" accept="image/*" onchange="handleFirmaUpload(event)">
-                            <div id="signature-placeholder" class="signature-placeholder">
-                                Haga clic aquí para cargar su firma
-                            </div>
-                            <div id="signature-display">
-                                <p style="text-align: center; color: #666;">No hay firma cargada</p>
-                            </div>
+            // Cargar la firma desde Supabase Storage
+            cargarFirmaDesdeStorage().then(firmaUrl => {
+                // Actualizar el contenido del visor
+                pdfViewer.innerHTML = `
+                    <div class="pdf-viewer-content">
+                        <div class="pdf-viewer-header">
+                            <h3>${filename}</h3>
+                            <button onclick="closePDFViewer()" class="close-btn">&times;</button>
                         </div>
-                        <button onclick="firmarPDFConfirmador('${filename}')" class="firma-btn">Firmar Documento</button>
+                        <div class="pdf-container" id="pdf-container-modal"></div>
+                        <div class="firma-section">
+                            <h4>Firma Digital</h4>
+                            <div class="firma-preview">
+                                ${firmaUrl ? `<img src="${firmaUrl}" alt="Firma" style="max-width: 200px;">` : '<p>No se pudo cargar la firma</p>'}
+                            </div>
+                            <button onclick="firmarPDFConfirmador('${filename}')" class="firma-btn">Firmar Documento</button>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
 
-            // Mostrar el visor
-            pdfViewer.style.display = 'flex';
+                // Mostrar el visor
+                pdfViewer.style.display = 'flex';
 
-            // Cargar el PDF en el visor
-            const pdfBlob = new Blob([pdfData], {type: 'application/pdf'});
-            const pdfUrl = URL.createObjectURL(pdfBlob);
-            const container = document.getElementById('pdf-container-modal');
-            
-            const iframe = document.createElement('iframe');
-            iframe.src = pdfUrl;
-            iframe.style.width = '100%';
-            iframe.style.height = '100%';
-            iframe.style.border = 'none';
-            container.appendChild(iframe);
-
-            // Mostrar la firma si existe
-            const currentSignature = getSignature();
-            if (currentSignature) {
-                const signatureDisplay = document.getElementById('signature-display');
-                const signaturePlaceholder = document.getElementById('signature-placeholder');
-                signatureDisplay.innerHTML = `<img src="${currentSignature}" alt="Firma" style="max-width: 200px;">`;
-                signatureDisplay.style.display = 'block';
-                if (signaturePlaceholder) {
-                    signaturePlaceholder.style.display = 'none';
-                }
-            }
+                // Cargar el PDF en el visor
+                const pdfBlob = new Blob([pdfData], {type: 'application/pdf'});
+                const pdfUrl = URL.createObjectURL(pdfBlob);
+                const container = document.getElementById('pdf-container-modal');
+                
+                const iframe = document.createElement('iframe');
+                iframe.src = pdfUrl;
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = 'none';
+                container.appendChild(iframe);
+            });
         }
 
         // Función para firmar el PDF
@@ -1992,9 +1999,9 @@
                     throw new Error('PDF no encontrado');
                 }
 
-                const currentSignature = getSignature();
-                if (!currentSignature) {
-                    alert('Por favor, cargue una firma antes de firmar el documento');
+                const firmaUrl = await cargarFirmaDesdeStorage();
+                if (!firmaUrl) {
+                    alert('No se pudo cargar la firma');
                     return;
                 }
 
@@ -2007,11 +2014,12 @@
 
                 // Cargar la firma
                 const img = new Image();
-                img.src = currentSignature;
+                img.src = firmaUrl;
 
                 // Esperar a que la imagen se cargue
-                await new Promise((resolve) => {
+                await new Promise((resolve, reject) => {
                     img.onload = resolve;
+                    img.onerror = () => reject(new Error('Error al cargar la imagen de la firma'));
                 });
 
                 // Añadir la firma en la última página
@@ -2550,6 +2558,25 @@
             } catch (error) {
                 console.error('Error al aprobar los documentos:', error);
                 alert('Error al aprobar los documentos: ' + error.message);
+            }
+        }
+
+        // Función para cargar la firma desde Supabase Storage
+        async function cargarFirmaDesdeStorage() {
+            try {
+                const { data, error } = await supabase
+                    .storage
+                    .from('firmas')
+                    .getPublicUrl('firma.png');
+
+                if (error) {
+                    throw error;
+                }
+
+                return data.publicUrl;
+            } catch (error) {
+                console.error('Error al cargar la firma:', error);
+                return null;
             }
         }
     </script>
