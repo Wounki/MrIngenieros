@@ -957,8 +957,8 @@
                     throw new Error('PDF no encontrado');
                 }
 
-                // URL específica de la firma
-                const firmaUrl = 'https://ixhsjtsilnfhuzgvkyve.supabase.co/storage/v1/object/sign/firmas/firma.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2NiNjQxYTNmLTRkMjItNGEwMi1iNGVjLTUxYWViNDhmMjZhOSJ9.eyJ1cmwiOiJmaXJtYXMvZmlybWEucG5nIiwiaWF0IjoxNzQ1NjEyMjk1LCJleHAiOjE3NzcxNDgyOTV9.eTo_qzbCwmnEpZzBRsfNutd-kKsx9oyEmjxge8KFR1Q';
+                // URL pública de la firma
+                const firmaUrl = 'https://ixhsjtsilnfhuzgvkyve.supabase.co/storage/v1/object/public/firmas/firma.png';
                 
                 // Obtener el PDF original
                 const pdfData = sharedData.pdfs[filename];
@@ -968,14 +968,22 @@
                 const doc = new jsPDF();
 
                 try {
-                    // Cargar la firma
+                    // Cargar la firma como blob primero
+                    const response = await fetch(firmaUrl);
+                    if (!response.ok) {
+                        throw new Error('No se pudo cargar la imagen de la firma');
+                    }
+                    const blob = await response.blob();
                     const img = new Image();
+                    const imageUrl = URL.createObjectURL(blob);
                     
                     await new Promise((resolve, reject) => {
                         img.onload = resolve;
-                        img.onerror = () => reject(new Error('Error al cargar la imagen de la firma'));
-                        img.crossOrigin = "anonymous"; // Añadir esto para permitir cargar la imagen
-                        img.src = firmaUrl;
+                        img.onerror = () => {
+                            URL.revokeObjectURL(imageUrl);
+                            reject(new Error('Error al cargar la imagen de la firma'));
+                        };
+                        img.src = imageUrl;
                     });
 
                     console.log('Firma cargada correctamente');
@@ -990,6 +998,9 @@
                         30
                     );
 
+                    // Limpiar la URL del objeto
+                    URL.revokeObjectURL(imageUrl);
+
                     console.log('Firma añadida al PDF');
 
                     // Guardar el PDF firmado
@@ -1002,8 +1013,8 @@
                     await saveToSupabase();
 
                     // Crear y descargar el PDF firmado
-                    const blob = new Blob([pdfFirmado], { type: 'application/pdf' });
-                    const url = URL.createObjectURL(blob);
+                    const pdfBlob = new Blob([pdfFirmado], { type: 'application/pdf' });
+                    const url = URL.createObjectURL(pdfBlob);
                     const a = document.createElement('a');
                     a.href = url;
                     a.download = `firmado_${filename}`;
@@ -1042,8 +1053,8 @@
                 document.body.appendChild(pdfViewer);
             }
 
-            // URL específica de la firma
-            const firmaUrl = 'https://ixhsjtsilnfhuzgvkyve.supabase.co/storage/v1/object/sign/firmas/firma.png?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2NiNjQxYTNmLTRkMjItNGEwMi1iNGVjLTUxYWViNDhmMjZhOSJ9.eyJ1cmwiOiJmaXJtYXMvZmlybWEucG5nIiwiaWF0IjoxNzQ1NjEyMjk1LCJleHAiOjE3NzcxNDgyOTV9.eTo_qzbCwmnEpZzBRsfNutd-kKsx9oyEmjxge8KFR1Q';
+            // URL pública de la firma
+            const firmaUrl = 'https://ixhsjtsilnfhuzgvkyve.supabase.co/storage/v1/object/public/firmas/firma.png';
 
             // Actualizar el contenido del visor
             pdfViewer.innerHTML = `
@@ -1056,7 +1067,7 @@
                     <div class="firma-section">
                         <h4>Firma Digital</h4>
                         <div class="firma-preview">
-                            <img src="${firmaUrl}" alt="Firma" style="max-width: 200px; border: 1px solid #ddd; padding: 10px;" crossorigin="anonymous">
+                            <img src="${firmaUrl}" alt="Firma" style="max-width: 200px; border: 1px solid #ddd; padding: 10px;">
                         </div>
                         <button onclick="firmarPDFConfirmador('${filename}')" class="firma-btn">Firmar Documento</button>
                     </div>
