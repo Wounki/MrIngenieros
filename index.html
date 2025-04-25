@@ -2374,23 +2374,8 @@
                     // Esperar a que el DOM esté actualizado
                     await new Promise(resolve => setTimeout(resolve, 100));
                     
-                    // Verificar que los elementos necesarios existan
-                    const requiredElements = [
-                        'no-docs-message',
-                        'empleados-list',
-                        'empleado-details',
-                        'info-grid',
-                        'pdf-grid'
-                    ];
-                    
-                    const missingElements = requiredElements.filter(id => !document.getElementById(id));
-                    if (missingElements.length > 0) {
-                        console.error('Elementos faltantes:', missingElements);
-                        throw new Error('No se encontraron todos los elementos necesarios en el DOM');
-                    }
-                    
+                    // Cargar datos del confirmador
                     await loadConfirmadorData();
-                    initRealtimeSubscription();
                 }
 
             } catch (error) {
@@ -2407,24 +2392,13 @@
         }
 
         // Función para cerrar sesión
-        async function logout() {
-            try {
-                if (currentUser && supabase) {
-                    try {
-                        await supabase.channel('online-users').unsubscribe();
-                        await supabase.channel('document-changes').unsubscribe();
-                    } catch (error) {
-                        console.error('Error al desconectar de Supabase:', error);
-                    }
-                }
-            } finally {
-                currentUser = null;
-                document.getElementById('login-form').style.display = 'block';
-                document.getElementById('revisor-dashboard').style.display = 'none';
-                document.getElementById('confirmador-dashboard').style.display = 'none';
-                document.getElementById('username').value = '';
-                document.getElementById('password').value = '';
-            }
+        function logout() {
+            currentUser = null;
+            document.getElementById('login-form').style.display = 'block';
+            document.getElementById('revisor-dashboard').style.display = 'none';
+            document.getElementById('confirmador-dashboard').style.display = 'none';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
         }
 
         // Función para mostrar pestañas
