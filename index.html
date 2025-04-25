@@ -1828,6 +1828,10 @@
         function updateConfirmadorPDFList() {
             const pdfListContent = document.getElementById('confirmador-pdf-list-content');
             if (!pdfListContent) return;
+            console.log('Actualizando lista de PDFs del confirmador');
+            console.log('Elemento encontrado:', pdfListContent);
+            console.log('PDFs disponibles:', sharedData.pdfs);
+    
 
             pdfListContent.innerHTML = '';
             const pdfs = sharedData.pdfs;
