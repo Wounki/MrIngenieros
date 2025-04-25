@@ -143,23 +143,8 @@
                         </div>
                         <div class="pdf-viewer" id="confirmador-pdf-viewer" style="display: none;">
                             <h3 id="confirmador-current-pdf-name"></h3>
-                            <div class="pdf-container" id="confirmador-pdf-container">
-                                <div class="signature-container">
-                                    <h3>Firma Digital</h3>
-                                    <input type="file" id="signature-input" class="signature-input" accept="image/*" onchange="handleFirmaUpload(event)">
-                                    <div id="signature-placeholder" class="signature-placeholder">
-                                        <img id="signature-preview" class="signature-preview" alt="Vista previa de la firma">
-                                    </div>
-                                    <div class="signature-buttons">
-                                        <button onclick="clearSignature()">Limpiar</button>
-                                        <button onclick="firmarPDF()">Firmar Documento</button>
-                                    </div>
-                                </div>
-                                <button onclick="aprobarTodosDocumentos()" class="approve-all-btn">Aprobar Todos los Documentos</button>
-                            </div>
-                            <div style="margin-top: 20px;">
-                                <button onclick="firmarPDF()" id="download-signed-pdf" style="display: none;">Descargar PDF Firmado</button>
-                            </div>
+                            <div id="confirmador-pdf-container" style="margin: 20px 0;"></div>
+                            <button onclick="closePDFViewer()" class="btn-secondary" style="margin-top: 10px;">Cerrar PDF</button>
                         </div>
                     </div>
                 </div>
@@ -655,25 +640,33 @@
 
                 currentPdfName.textContent = filename;
                 pdfContainer.innerHTML = `
-                    <div class="pdf-display">
-                        <embed src="${pdfUrl}" type="application/pdf" width="100%" height="600px">
+                    <div style="width: 100%; height: 600px; border: 1px solid #ccc; margin-bottom: 20px;">
+                        <object data="${pdfUrl}" type="application/pdf" width="100%" height="100%">
+                            <embed src="${pdfUrl}" type="application/pdf" width="100%" height="100%">
+                            <p>Este navegador no puede mostrar el PDF. Por favor, descárguelo para verlo: <a href="${pdfUrl}" download="${filename}">Descargar PDF</a></p>
+                        </object>
                     </div>
-                    <div class="signature-section" style="margin-top: 20px; text-align: center;">
-                        <h3>Firma Digital</h3>
-                        <img src="${firmaUrl}" alt="Firma" style="max-width: 200px; margin: 10px 0; border: 1px solid #ccc;">
-                        <div style="margin-top: 10px;">
-                            <button onclick="firmarPDFConfirmador('${filename}')" class="btn-primary" style="padding: 10px 20px;">
-                                Firmar Documento
-                            </button>
+                    ${firmaUrl ? `
+                        <div class="signature-section" style="margin-top: 20px; text-align: center;">
+                            <h3>Firma Digital</h3>
+                            <img src="${firmaUrl}" alt="Firma" style="max-width: 200px; margin: 10px 0; border: 1px solid #ccc;">
+                            <div style="margin-top: 10px;">
+                                <button onclick="firmarPDFConfirmador('${filename}')" class="btn-primary" style="padding: 10px 20px;">
+                                    Firmar Documento
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                    ` : '<p>No se pudo cargar la firma</p>'}
                 `;
 
+                // Mostrar el visor
                 pdfViewer.style.display = 'block';
+
+                console.log('PDF mostrado exitosamente');
 
             } catch (error) {
                 console.error('Error al mostrar el PDF:', error);
-                alert('Error al cargar el PDF: ' + error.message);
+                alert('Error al mostrar el PDF: ' + error.message);
             }
         }
         
@@ -821,7 +814,10 @@
 
         // Función para cerrar el visor de PDF
         function closePDFViewer() {
-            document.getElementById('confirmador-pdf-viewer').style.display = 'none';
+            const pdfViewer = document.getElementById('confirmador-pdf-viewer');
+            if (pdfViewer) {
+                pdfViewer.style.display = 'none';
+            }
         }
 
         // Función para cargar datos del confirmador
