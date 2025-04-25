@@ -45,11 +45,55 @@ body {
 }
 
 /* Estilos para el visor de PDF */
-#pdf-viewer {
+.pdf-viewer {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    height: 90vh;
+    background: white;
+    z-index: 1000;
+    padding: 20px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.3);
+    border-radius: 8px;
+    display: none;
+}
+
+.pdf-viewer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.pdf-container {
+    height: calc(100% - 100px);
     width: 100%;
-    height: 600px;
-    border: 1px solid #dee2e6;
-    margin-top: 20px;
+    overflow: hidden;
+    background: #f5f5f5;
+    border-radius: 4px;
+}
+
+.pdf-container object,
+.pdf-container embed {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* Overlay para el fondo */
+.pdf-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+    display: none;
 }
 
 /* Estilos para la firma */
@@ -161,22 +205,6 @@ th, td {
 
 th {
     background-color: #f2f2f2;
-}
-
-/* Visor de PDF */
-.pdf-viewer {
-    margin-top: 20px;
-    border: 1px solid #ddd;
-    padding: 15px;
-    border-radius: 4px;
-}
-
-.pdf-container {
-    width: 100%;
-    height: 500px;
-    overflow: auto;
-    margin-top: 10px;
-    border: 1px solid #ddd;
 }
 
 /* Firma digital */
@@ -562,15 +590,6 @@ th {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-}
-
-.pdf-viewer-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
 }
 
 .close-btn {
