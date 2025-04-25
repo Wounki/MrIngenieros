@@ -963,12 +963,12 @@
                 // Obtener el PDF original
                 const pdfData = sharedData.pdfs[filename];
                 
-                // Crear nuevo documento PDF
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-
                 try {
-                    // Cargar la firma como blob primero
+                    // Cargar el PDF original
+                    const pdfDoc = await pdfjsLib.getDocument(pdfData).promise;
+                    const numPages = pdfDoc.numPages;
+
+                    // Cargar la firma como blob
                     const response = await fetch(firmaUrl);
                     if (!response.ok) {
                         throw new Error('No se pudo cargar la imagen de la firma');
@@ -988,20 +988,60 @@
 
                     console.log('Firma cargada correctamente');
 
-                    // Añadir la firma en la última página
-                    doc.addImage(
-                        img,
-                        'PNG',
-                        doc.internal.pageSize.width - 70,
-                        doc.internal.pageSize.height - 60,
-                        50,
-                        30
-                    );
+                    // Crear nuevo documento PDF
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+
+                    // Copiar todas las páginas del PDF original
+                    for (let i = 1; i <= numPages; i++) {
+                        // Obtener la página actual
+                        const page = await pdfDoc.getPage(i);
+                        const viewport = page.getViewport({ scale: 1 });
+                        
+                        // Crear un canvas para renderizar la página
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+                        
+                        // Renderizar la página en el canvas
+                        await page.render({
+                            canvasContext: context,
+                            viewport: viewport
+                        }).promise;
+                        
+                        // Añadir la página al nuevo PDF
+                        if (i > 1) {
+                            doc.addPage();
+                        }
+                        doc.addImage(
+                            canvas.toDataURL('image/jpeg', 1.0),
+                            'JPEG',
+                            0,
+                            0,
+                            doc.internal.pageSize.width,
+                            doc.internal.pageSize.height,
+                            '',
+                            'FAST'
+                        );
+
+                        // Si es la última página, añadir la firma
+                        if (i === numPages) {
+                            doc.addImage(
+                                img,
+                                'PNG',
+                                doc.internal.pageSize.width - 70,
+                                doc.internal.pageSize.height - 60,
+                                50,
+                                30
+                            );
+                        }
+                    }
 
                     // Limpiar la URL del objeto
                     URL.revokeObjectURL(imageUrl);
 
-                    console.log('Firma añadida al PDF');
+                    console.log('PDF procesado y firma añadida');
 
                     // Guardar el PDF firmado
                     const pdfFirmado = doc.output('arraybuffer');
@@ -1025,8 +1065,8 @@
                     closePDFViewer();
 
                 } catch (imgError) {
-                    console.error('Error al procesar la imagen:', imgError);
-                    throw new Error('Error al procesar la firma: ' + imgError.message);
+                    console.error('Error al procesar el documento:', imgError);
+                    throw new Error('Error al procesar el documento: ' + imgError.message);
                 }
 
             } catch (error) {
