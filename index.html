@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <link rel="stylesheet" href="styles.css">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión de Contratos</title>
@@ -12,915 +13,6 @@
         const { createClient } = window.supabase;
     </script>
     
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .login-container {
-            max-width: 400px;
-            margin: 100px auto;
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        }
-        
-        .dashboard {
-            display: none;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            margin-top: 20px;
-        }
-        
-        h1, h2 {
-            color: #333;
-        }
-        
-        .form-group {
-            margin-bottom: 15px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-        
-        input[type="text"], 
-        input[type="password"] {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-right: 10px;
-            margin-bottom: 10px;
-        }
-        
-        button:hover {
-            background-color: #45a049;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-        
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        th {
-            background-color: #f2f2f2;
-        }
-        
-        .pdf-viewer {
-            margin-top: 20px;
-            border: 1px solid #ddd;
-            padding: 15px;
-            border-radius: 4px;
-        }
-        
-        .pdf-container {
-            width: 100%;
-            height: 500px;
-            overflow: auto;
-            margin-top: 10px;
-            border: 1px solid #ddd;
-        }
-        
-        .canvas-container {
-            display: none;
-        }
-
-        .signature-container {
-            background-color: #f8f8f8;
-            padding: 20px;
-            border: 1px solid #ddd;
-            margin-top: 10px;
-            text-align: center;
-        }
-
-        .signature-preview {
-            max-width: 400px;
-            max-height: 200px;
-            margin: 10px auto;
-            border: 1px solid #ddd;
-            display: none;
-        }
-
-        .signature-input {
-            display: none;
-        }
-
-        .signature-buttons {
-            margin-top: 10px;
-        }
-
-        .signature-placeholder {
-            width: 400px;
-            height: 200px;
-            border: 2px dashed #ccc;
-            margin: 10px auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #666;
-            cursor: pointer;
-        }
-
-        .signature-placeholder:hover {
-            border-color: #4CAF50;
-            color: #4CAF50;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        
-        .user-info {
-            font-weight: bold;
-        }
-        
-        .logout-btn {
-            background-color: #f44336;
-        }
-        
-        .logout-btn:hover {
-            background-color: #d32f2f;
-        }
-        
-        .tab-buttons {
-            margin-bottom: 20px;
-        }
-        
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        .pdf-section {
-            margin-top: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        .section-header {
-            background-color: #f5f5f5;
-            padding: 10px;
-            border-bottom: 1px solid #ddd;
-        }
-        
-        .toggle-btn {
-            width: 100%;
-            text-align: left;
-            padding: 10px;
-            background: none;
-            border: none;
-            color: #333;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        
-        .toggle-btn:hover {
-            background-color: #e9e9e9;
-        }
-        
-        .toggle-btn.expanded {
-            background-color: #e9e9e9;
-        }
-        
-        .pdf-content {
-            padding: 15px;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 15px;
-            background-color: white;
-        }
-        
-        .pdf-thumbnail {
-            display: inline-block;
-            text-align: center;
-            background: #f8f8f8;
-            padding: 10px;
-            border-radius: 4px;
-            transition: transform 0.2s;
-        }
-        
-        .pdf-thumbnail:hover {
-            transform: translateY(-2px);
-            background: #f0f0f0;
-        }
-        
-        .pdf-thumbnail img {
-            width: 100px;
-            height: 140px;
-            object-fit: cover;
-            border: 1px solid #ddd;
-            cursor: pointer;
-        }
-        
-        .pdf-thumbnail div {
-            margin-top: 8px;
-            font-size: 12px;
-            color: #666;
-            word-break: break-word;
-            max-width: 100%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .pdf-search-container {
-            margin-bottom: 15px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .pdf-search-input {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        .pdf-search-btn {
-            padding: 8px 15px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .pdf-search-btn:hover {
-            background-color: #45a049;
-        }
-
-        .comparison-container {
-        display: flex;
-        gap: 20px;
-        flex-wrap: wrap; /* Permitir que las secciones se apilen en pantallas pequeñas */
-        }
-        
-        .comparison-container > div {
-            flex: 1;
-            min-width: 300px; /* Asegurar un ancho mínimo para la legibilidad */
-        }
-        
-        .pdf-container, .pdf-viewer, .canvas-container {
-            max-height: 500px;
-            overflow-y: auto; /* Habilitar desplazamiento para contenido extenso */
-        }
-
-        #excel-row-viewer, #confirmador-row-viewer {
-        max-height: 300px; /* Limitar la altura del visor de filas */
-        overflow-y: auto; /* Habilitar desplazamiento si el contenido es extenso */
-        }
-        
-        .pdf-container {
-            max-height: 400px; /* Asegurar que el visor de PDF tenga espacio suficiente */
-            overflow-y: auto;
-        }
-        
-        .comparison-container {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            max-height: 80vh; /* Limitar la altura total para que quepa en la pantalla */
-            overflow-y: auto;
-        }
-        
-        .comparison-container > div {
-            flex: 1;
-            min-width: 300px;
-        }
-
-        .validation-btn {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        
-        .validation-btn:hover {
-            background-color: #45a049;
-        }
-
-        .estado-select {
-            background-color: #fff;
-            font-size: 14px;
-        }
-        
-        .estado-select option {
-            padding: 10px;
-        }
-        
-        .estado-select:focus {
-            outline: none;
-            border-color: #4CAF50;
-        }
-        
-        /* Colores según el estado */
-        .estado-select[value="SIN REVISION"] {
-            background-color: #ffebee;
-        }
-        
-        .estado-select[value="PENDIENTE"] {
-            background-color: #fff3e0;
-        }
-        
-        .estado-select[value="REVISADO"] {
-            background-color: #e8f5e9;
-        }
-        
-        .estado-select[value="AUTORIZADO"] {
-            background-color: #e3f2fd;
-        }
-
-        .user-status {
-            padding: 5px 10px;
-            border-radius: 4px;
-            background-color: #e8f5e9;
-            color: #2e7d32;
-            margin-left: 10px;
-            font-size: 0.9em;
-        }
-
-        .status-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-        }
-
-        .status-online {
-            background-color: #4caf50;
-        }
-
-        .status-offline {
-            background-color: #f44336;
-        }
-
-        .real-time-indicator {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 10px;
-            background-color: #fff;
-            border-radius: 4px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-            z-index: 1000;
-        }
-
-        .editing-indicator {
-            font-style: italic;
-            color: #666;
-            margin-left: 10px;
-        }
-
-        .confirmador-layout {
-            display: grid;
-            grid-template-columns: 300px 1fr 400px;
-            gap: 20px;
-            padding: 20px;
-            height: calc(100vh - 100px);
-        }
-
-        .empleados-section {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow-y: auto;
-        }
-
-        .empleado-card {
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        .empleado-card:hover {
-            background-color: #f5f5f5;
-        }
-
-        .empleado-card.selected {
-            background-color: #e3f2fd;
-            border-color: #2196f3;
-        }
-
-        .empleado-details {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow-y: auto;
-        }
-
-        .estado-section {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 4px;
-        }
-
-        .documentos-section {
-            background: white;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;
-        }
-
-        .pdf-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            gap: 15px;
-            padding: 15px;
-            overflow-y: auto;
-        }
-
-        .pdf-viewer {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            width: 80%;
-            height: 80%;
-            background: white;
-            z-index: 1000;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        }
-
-        .pdf-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 20px;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: #666;
-        }
-
-        .firma-section {
-            padding: 15px;
-            text-align: center;
-            border-top: 1px solid #ddd;
-        }
-
-        .firma-btn {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .firma-btn:hover {
-            background-color: #45a049;
-        }
-
-        .search-bar {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .search-bar input {
-            flex: 1;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .search-btn {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .search-btn:hover {
-            background-color: #45a049;
-        }
-
-        .empleado-card {
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .empleado-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .empleado-card.sin-revision {
-            background-color: #ffebee;
-        }
-
-        .empleado-card.pendiente {
-            background-color: #fff3e0;
-        }
-
-        .empleado-card.revisado {
-            background-color: #e8f5e9;
-        }
-
-        .empleado-card.autorizado {
-            background-color: #e3f2fd;
-        }
-
-        .firma-btn {
-            margin-top: 10px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            width: 100%;
-        }
-
-        .firma-btn:hover {
-            background-color: #45a049;
-        }
-
-        /* Estilos específicos para el confirmador */
-        .confirmador-content {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 20px;
-            padding: 20px;
-        }
-
-        .empleado-details {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            display: none;
-        }
-
-        .empleado-details.active {
-            display: block;
-        }
-
-        .empleado-info {
-            margin-bottom: 20px;
-        }
-
-        .empleado-info h3 {
-            margin-bottom: 15px;
-            color: #333;
-        }
-
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-
-        .info-item {
-            margin-bottom: 10px;
-        }
-
-        .info-item label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 5px;
-            color: #666;
-        }
-
-        .info-item span {
-            display: block;
-            padding: 8px;
-            background: #f5f5f5;
-            border-radius: 4px;
-        }
-
-        .pdf-section {
-            margin-top: 20px;
-        }
-
-        .pdf-search {
-            margin-bottom: 15px;
-        }
-
-        .pdf-search input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-
-        .pdf-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 15px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .pdf-item {
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            cursor: pointer;
-            text-align: center;
-            transition: transform 0.2s ease;
-        }
-
-        .pdf-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        .pdf-icon {
-            font-size: 40px;
-            color: #e74c3c;
-            margin-bottom: 5px;
-        }
-
-        .pdf-name {
-            font-size: 12px;
-            color: #666;
-            word-break: break-word;
-        }
-
-        .search-container {
-            margin-bottom: 20px;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-
-        #no-docs-message {
-            padding: 20px;
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            margin: 20px 0;
-        }
-
-        .firma-section {
-            margin-top: 30px;
-        }
-
-        .signature-container {
-            width: 300px;
-            height: 150px;
-            border: 1px solid #ddd;
-            margin: 20px 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: white;
-        }
-
-        .signature-preview {
-            max-width: 100%;
-            max-height: 100%;
-            display: block;
-        }
-
-        .approve-all-btn {
-            background-color: #4CAF50;
-            color: white;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-top: 20px;
-        }
-
-        .approve-all-btn:hover {
-            background-color: #45a049;
-        }
-
-        .estado-message {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #fff3e0;
-            border: 1px solid #ffe0b2;
-            border-radius: 4px;
-            color: #666;
-        }
-
-        /* Ajustes para hacer el diseño más limpio */
-        .header {
-            margin-bottom: 30px;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 20px;
-        }
-
-        h2 {
-            color: #333;
-            margin-bottom: 20px;
-        }
-
-        h3 {
-            color: #666;
-            margin-bottom: 15px;
-        }
-
-        .empleados-list {
-            margin-top: 20px;
-            max-height: 500px;
-            overflow-y: auto;
-            padding: 10px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .empleado-card {
-            background: white;
-            padding: 15px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            cursor: pointer;
-            transition: transform 0.2s ease;
-        }
-
-        .empleado-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
-        .empleado-card .empleado-nombre {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-
-        .empleado-card .empleado-estado {
-            font-size: 0.9em;
-            color: #666;
-        }
-
-        .empleado-card.sin-revision {
-            border-left: 4px solid #ff5252;
-        }
-
-        .empleado-card.pendiente {
-            border-left: 4px solid #ffd740;
-        }
-
-        .empleado-card.revisado {
-            border-left: 4px solid #4caf50;
-        }
-
-        .empleado-card.autorizado {
-            border-left: 4px solid #2196f3;
-        }
-
-        .pdf-viewer-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            z-index: 1000;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .pdf-viewer-content {
-            background: white;
-            width: 90%;
-            height: 90%;
-            border-radius: 8px;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .pdf-viewer-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            background: #f5f5f5;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .pdf-viewer-header h3 {
-            margin: 0;
-        }
-
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            padding: 0 10px;
-        }
-
-        .pdf-container {
-            flex: 1;
-            overflow: auto;
-            padding: 15px;
-        }
-
-        .firma-section {
-            padding: 15px;
-            border-top: 1px solid #ddd;
-            text-align: center;
-        }
-
-        .firma-btn {
-            background: #4CAF50;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .firma-btn:hover {
-            background: #45a049;
-        }
-
-        .signature-preview-container {
-            margin: 10px 0;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            display: inline-block;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
@@ -1050,12 +142,9 @@
                             <div class="pdf-container" id="confirmador-pdf-container">
                                 <div class="signature-container">
                                     <h3>Firma Digital</h3>
-                                    <div class="signature-options">
-                                        <button onclick="loadSignatureFromFile()">Cargar desde archivo</button>
-                                        <button onclick="loadSignatureFromSupabase()">Cargar desde Supabase</button>
-                                    </div>
-                                    <div id="signature-preview" class="signature-preview" alt="Vista previa de la firma">
-                                        <img id="signature-image" style="max-width: 200px; max-height: 100px; display: none;">
+                                    <input type="file" id="signature-input" class="signature-input" accept="image/*" onchange="handleFirmaUpload(event)">
+                                    <div id="signature-placeholder" class="signature-placeholder">
+                                        <img id="signature-preview" class="signature-preview" alt="Vista previa de la firma">
                                     </div>
                                     <div class="signature-buttons">
                                         <button onclick="clearSignature()">Limpiar</button>
@@ -1126,13 +215,15 @@
                     <div class="firma-section" style="display: none;">
                         <h3>Firma Digital</h3>
                         <div class="signature-container">
-                            <div class="signature-options">
-                                <button onclick="loadSignatureFromFile()">Cargar desde archivo</button>
-                                <button onclick="loadSignatureFromSupabase()">Cargar desde Supabase</button>
+                            <input type="file" 
+                                   id="signature-input" 
+                                   class="signature-input" 
+                                   accept="image/*" 
+                                   onchange="handleFirmaUpload(event)">
+                            <div id="signature-placeholder" class="signature-placeholder">
+                                Haga clic aquí para cargar su firma
                             </div>
-                            <div id="signature-preview" class="signature-preview" alt="Vista previa de la firma">
-                                <img id="signature-image" style="max-width: 200px; max-height: 100px; display: none;">
-                            </div>
+                            <img id="signature-preview" class="signature-preview" alt="Vista previa de la firma">
                         </div>
                         <div class="signature-buttons">
                             <button onclick="clearSignature()">Limpiar</button>
@@ -1169,6 +260,7 @@
         let currentPDF = null;
         let signatureData = null;
         let signedPDFs = {};
+        let SIGNATURE_BASE64 = "data:image/png;base64CC";
 
         // Datos compartidos
         let sharedData = {
@@ -1189,6 +281,116 @@
                 role: "confirmador"
             }
         };
+
+
+        // Función para buscar empleados (Confirmador)
+        function searchConfirmadorRows() {
+            try {
+                const searchInput = document.getElementById('confirmador-search-input');
+                if (!searchInput) {
+                    console.error('No se encontró el campo de búsqueda');
+                    return;
+                }
+
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                const empleadosList = document.getElementById('empleados-list');
+                
+                if (!empleadosList) {
+                    console.error('No se encontró la lista de empleados');
+                    return;
+                }
+
+                if (!sharedData.excelData || !Array.isArray(sharedData.excelData) || sharedData.excelData.length <= 1) {
+                    console.log('No hay datos para buscar');
+                    empleadosList.innerHTML = '<p>No hay datos disponibles</p>';
+                    return;
+                }
+
+                empleadosList.innerHTML = '';
+                const headers = sharedData.excelData[0];
+                
+                // Índices de las columnas de búsqueda
+                const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
+                const documentoIndex = headers.indexOf('No. DE IDENTIFICACIÓN');
+                const estadoIndex = headers.indexOf('ESTADO');
+                const cargoIndex = headers.indexOf('CARGO');
+
+                let encontrados = false;
+
+                for (let i = 1; i < sharedData.excelData.length; i++) {
+                    const row = sharedData.excelData[i];
+                    if (!row) continue;
+
+                    const nombre = String(row[nombreIndex] || '').toLowerCase();
+                    const documento = String(row[documentoIndex] || '').toLowerCase();
+                    const cargo = String(row[cargoIndex] || '').toLowerCase();
+                    const estado = row[estadoIndex] || 'SIN REVISION';
+
+                    // Buscar en nombre, documento y cargo
+                    if (searchTerm === '' || 
+                        nombre.includes(searchTerm) || 
+                        documento.includes(searchTerm) || 
+                        cargo.includes(searchTerm)) {
+                        
+                        encontrados = true;
+                        const empleadoCard = document.createElement('div');
+                        empleadoCard.className = `empleado-card ${estado.toLowerCase().replace(' ', '-')}`;
+                        empleadoCard.innerHTML = `
+                            <div class="empleado-nombre">${row[nombreIndex] || 'Sin nombre'}</div>
+                            <div class="empleado-info">
+                                <span>Documento: ${row[documentoIndex] || 'N/A'}</span>
+                                <span>Cargo: ${row[cargoIndex] || 'N/A'}</span>
+                            </div>
+                            <div class="empleado-estado">Estado: ${estado}</div>
+                        `;
+                        empleadoCard.onclick = () => showEmpleadoDetails(i);
+                        empleadosList.appendChild(empleadoCard);
+                    }
+                }
+
+                if (!encontrados) {
+                    empleadosList.innerHTML = '<p>No se encontraron resultados</p>';
+                }
+
+            } catch (error) {
+                console.error('Error en la búsqueda:', error);
+                alert('Error al buscar empleados: ' + error.message);
+            }
+        }
+
+        // Subir firma a Supabase Storage y obtener URL pública
+        async function uploadFirmaToSupabase(file) {
+            const filePath = `firmas/${file.name}`;
+            // Subir el archivo (upsert para sobrescribir si ya existe)
+            const { error } = await supabase.storage.from('firmas').upload(filePath, file, {
+                cacheControl: '3600',
+                upsert: true
+            });
+            if (error) throw error;
+            // Obtener la URL pública
+            const { data: publicUrlData } = supabase.storage.from('firmas').getPublicUrl(filePath);
+            return publicUrlData.publicUrl;
+        }
+
+        // Función para manejar la carga de firma
+        async function handleFirmaUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                try {
+                    // Subir la firma a Supabase Storage
+                    const firmaUrl = await uploadFirmaToSupabase(file);
+                    window.firmaUrl = firmaUrl; // Guardar la URL globalmente
+                    // Mostrar la firma en la vista previa
+                    const preview = document.getElementById('signature-preview');
+                    if (preview) {
+                        preview.src = firmaUrl;
+                        preview.style.display = 'block';
+                    }
+                } catch (error) {
+                    alert('Error al subir la firma: ' + error.message);
+                }
+            }
+        }
 
         // Función para cargar Excel
         async function loadExcel() {
@@ -1228,20 +430,33 @@
                         }
 
                         // Convertir a JSON con manejo de errores
-                        const excelData = XLSX.utils.sheet_to_json(firstSheet, { 
+                        const newExcelData = XLSX.utils.sheet_to_json(firstSheet, { 
                             header: 1,
                             raw: false,
                             defval: '' // Valor por defecto para celdas vacías
                         });
 
-                        if (!excelData || excelData.length <= 1) {
+                        if (!newExcelData || newExcelData.length <= 1) {
                             throw new Error('El archivo Excel no contiene datos suficientes');
                         }
 
+                        // Obtener datos existentes de Supabase
+                        const { data: existingData, error } = await supabase
+                            .from('excel_data')
+                            .select('*')
+                            .order('upload_date', { ascending: false });
+
+                        if (error) {
+                            throw new Error('Error al obtener datos existentes: ' + error.message);
+                        }
+
+                        // Compilar datos
+                        const compiledData = await compileExcelData(newExcelData, existingData);
+
                         // Guardar datos en el objeto compartido
-                        sharedData.excelData = excelData;
+                        sharedData.excelData = compiledData;
                         sharedData.filteredRows = Array.from(
-                            { length: excelData.length - 1 }, 
+                            { length: compiledData.length - 1 }, 
                             (_, i) => i + 1
                         );
                         sharedData.currentRowIndex = 1;
@@ -1277,6 +492,103 @@
             } catch (error) {
                 console.error('Error al cargar el Excel:', error);
                 alert('Error al cargar el archivo Excel: ' + error.message);
+            }
+        }
+
+        // Función para compilar datos de Excel
+        async function compileExcelData(newData, existingData) {
+            try {
+                if (!newData || newData.length <= 1) {
+                    throw new Error('El archivo Excel está vacío o no tiene datos suficientes');
+                }
+
+                // Obtener headers
+                const headers = newData[0];
+                const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
+                const documentoIndex = headers.indexOf('No. DE IDENTIFICACIÓN');
+
+                // Validar columnas requeridas y mapear nombres de columnas
+                const columnMapping = {
+                    'NOMBRES Y APELLIDOS': ['NOMBRES Y APELLIDOS'],
+                    'DOCUMENTO': ['No. DE IDENTIFICACIÓN', 'DOCUMENTO', 'No. DE IDENTIFICACION']
+                };
+
+                const columnasRequeridas = Object.keys(columnMapping);
+                const columnasFaltantes = columnasRequeridas.filter(colReq => {
+                    // Verificar si alguna de las variantes de la columna existe
+                    return !columnMapping[colReq].some(variant => headers.includes(variant));
+                });
+
+                if (columnasFaltantes.length > 0) {
+                    throw new Error(`El archivo Excel debe contener las siguientes columnas obligatorias: ${columnasFaltantes.join(', ')}. 
+                    \nColumnas encontradas en tu Excel: ${headers.join(', ')}`);
+                }
+
+                // Resto del código igual...
+                const compiledData = [headers];
+                const existingEmployees = new Map();
+
+                if (existingData && existingData.length > 0) {
+                    existingData.forEach(record => {
+                        const employeeData = record.data;
+                        if (employeeData && employeeData.length > 1) {
+                            for (let i = 1; i < employeeData.length; i++) {
+                                const row = employeeData[i];
+                                if (row && row[nombreIndex] && row[documentoIndex]) {
+                                    const key = `${row[nombreIndex]}_${row[documentoIndex]}`;
+                                    existingEmployees.set(key, row);
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Procesar nuevos datos
+                for (let i = 1; i < newData.length; i++) {
+                    const row = newData[i];
+                    if (!row) continue;
+
+                    // Obtener nombre y documento con validación más flexible
+                    const nombre = row[nombreIndex]?.toString().trim();
+                    const documento = row[documentoIndex]?.toString().trim();
+
+                    // Si falta algún dato requerido, registrar advertencia pero continuar
+                    if (!nombre || !documento) {
+                        console.warn(`Advertencia: Fila ${i + 1} tiene datos incompletos - Nombre: ${nombre || 'FALTA'}, Documento: ${documento || 'FALTA'}`);
+                        // Continuar con la siguiente fila
+                        continue;
+                    }
+
+                    const key = `${nombre}_${documento}`;
+                    
+                    if (existingEmployees.has(key)) {
+                        const existingRow = existingEmployees.get(key);
+                        const estadoIndex = headers.indexOf('ESTADO');
+                        if (estadoIndex !== -1) {
+                            row[estadoIndex] = existingRow[estadoIndex] || 'SIN REVISION';
+                        }
+                    }
+
+                    compiledData.push(row);
+                }
+
+                // Guardar en Supabase
+                const { error } = await supabase
+                    .from('excel_data')
+                    .insert([{
+                        data: compiledData,
+                        upload_date: new Date().toISOString()
+                    }]);
+
+                if (error) {
+                    throw new Error('Error al guardar datos compilados: ' + error.message);
+                }
+
+                return compiledData;
+            } catch (error) {
+                console.error('Error al compilar datos:', error);
+                alert(error.message);
+                throw error;
             }
         }
 
@@ -1570,59 +882,6 @@
             });
         }
 
-        // Función para buscar empleados (Confirmador)
-        function searchConfirmadorRows() {
-            try {
-                const searchInput = document.getElementById('confirmador-search-input');
-                if (!searchInput) return;
-
-                // Intentar cargar datos actualizados desde Supabase
-                loadConfirmadorData();
-
-                const searchTerm = (searchInput.value || '').toLowerCase();
-                const empleadosList = document.getElementById('empleados-list');
-                
-                if (!empleadosList || !sharedData.excelData || !Array.isArray(sharedData.excelData)) {
-                    console.error('Elementos necesarios no encontrados');
-                    return;
-                }
-
-                empleadosList.innerHTML = '';
-                const headers = sharedData.excelData[0] || [];
-                const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
-                const estadoIndex = headers.indexOf('ESTADO');
-
-                if (nombreIndex === -1) {
-                    console.error('Columna de nombres no encontrada');
-                    return;
-                }
-
-                for (let i = 1; i < sharedData.excelData.length; i++) {
-                    const row = sharedData.excelData[i];
-                    if (!row) continue;
-
-                    const nombre = String(row[nombreIndex] || '').toLowerCase();
-                    if (nombre.includes(searchTerm)) {
-                        const empleadoCard = document.createElement('div');
-                        empleadoCard.className = 'empleado-card';
-                        empleadoCard.innerHTML = `
-                            <div class="empleado-nombre">${row[nombreIndex] || 'Sin nombre'}</div>
-                            <div class="empleado-estado">${row[estadoIndex] || 'SIN REVISION'}</div>
-                        `;
-                        empleadoCard.onclick = () => showEmpleadoDetails(i);
-                        empleadosList.appendChild(empleadoCard);
-                    }
-                }
-
-                if (empleadosList.children.length === 0) {
-                    empleadosList.innerHTML = '<p>No se encontraron empleados</p>';
-                }
-            } catch (error) {
-                console.error('Error en la búsqueda:', error);
-                alert('Error al buscar empleados: ' + error.message);
-            }
-        }
-
         // Función para mostrar detalles del empleado y su PDF asociado
         function showEmpleadoDetails(rowIndex) {
             if (!sharedData.excelData || !sharedData.excelData[rowIndex]) return;
@@ -1881,7 +1140,7 @@
                     <div class="pdf-container" id="pdf-container-modal"></div>
                     <div class="firma-section">
                         <div class="signature-preview-container">
-                            <img id="signature-display" src="${signatureData || ''}" alt="Firma" style="max-width: 200px; margin: 10px 0;">
+                            <img id="signature-display" src="${SIGNATURE_BASE64}" alt="Firma" style="max-width: 200px; margin: 10px 0;">
                         </div>
                         <button onclick="firmarPDFConfirmador('${filename}')" class="firma-btn">Firmar Documento</button>
                     </div>
@@ -1920,40 +1179,72 @@
                 // Obtener el PDF original
                 const pdfData = sharedData.pdfs[filename];
                 
-                // Crear nuevo documento PDF
+                // Cargar el PDF usando pdf.js
+                const pdfDoc = await pdfjsLib.getDocument(pdfData).promise;
+                const numPages = pdfDoc.numPages;
+                
+                // Crear un nuevo PDF con el contenido original
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
-
-                // Cargar la firma
+                
+                // Copiar cada página del PDF original al nuevo PDF
+                for (let i = 1; i <= numPages; i++) {
+                    const page = await pdfDoc.getPage(i);
+                    const viewport = page.getViewport({ scale: 1.0 });
+                    
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
+                    
+                    await page.render({
+                        canvasContext: context,
+                        viewport: viewport
+                    }).promise;
+                    
+                    if (i > 1) {
+                        doc.addPage();
+                    }
+                    
+                    // Agregar la página al nuevo PDF
+                    doc.addImage(
+                        canvas.toDataURL('image/jpeg', 1.0),
+                        'JPEG',
+                        0,
+                        0,
+                        doc.internal.pageSize.width,
+                        doc.internal.pageSize.height
+                    );
+                }
+                
+                // Cargar la firma como imagen
                 const img = new Image();
-                img.src = signatureData;
-
+                img.src = SIGNATURE_BASE64;
+                
                 // Esperar a que la imagen se cargue
                 await new Promise((resolve) => {
                     img.onload = resolve;
                 });
-
+                
                 // Añadir la firma en la última página
                 doc.addImage(
                     img,
                     'PNG',
                     doc.internal.pageSize.width - 70,
-                    doc.internal.pageSize.height - 60,
+                    20,
                     50,
                     30
                 );
-
-                // Guardar el PDF firmado
-                const pdfFirmado = doc.output('arraybuffer');
                 
-                // Actualizar el PDF en sharedData
-                sharedData.pdfs[`firmado_${filename}`] = pdfFirmado;
+                // Guardar el PDF firmado
+                const pdfArrayBuffer = doc.output('arraybuffer');
+                sharedData.pdfs[`firmado_${filename}`] = arrayBufferToBase64(pdfArrayBuffer);
 
                 // Actualizar en Supabase
                 await saveToSupabase();
 
                 // Crear y descargar el PDF firmado
-                const blob = new Blob([pdfFirmado], { type: 'application/pdf' });
+                const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -2039,38 +1330,32 @@
         
         // Función para firmar el PDF
         async function firmarPDF() {
-            if (!currentPDF || !signatureData) {
+            if (!currentPDF || !window.firmaUrl) {
                 alert('Por favor, seleccione un PDF y cargue una firma antes de firmar');
                 return;
             }
-
             try {
-                const pdfDoc = await pdfjsLib.getDocument(sharedData.pdfs[currentPDF]).promise;
-                const numPages = pdfDoc.numPages;
-                
-                // Crear nuevo documento PDF
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                // Cargar la firma como imagen
-                const img = new Image();
-                img.src = signatureData;
-                
-                // Esperar a que la imagen se cargue
-                await new Promise((resolve) => {
-                    img.onload = resolve;
-                });
-                
-                // Añadir la firma en la última página
-                doc.addImage(img, 'PNG', 20, doc.internal.pageSize.height - 60, 50, 30);
-                
-                // Guardar y descargar el PDF firmado
-                doc.save('documento_firmado.pdf');
-                
-                alert('Documento firmado correctamente');
+                // Descargar la imagen de la firma desde la URL
+                const response = await fetch(window.firmaUrl);
+                const blob = await response.blob();
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    const signatureDataUrl = e.target.result;
+                    // Lógica original para firmar el PDF usando signatureDataUrl
+                    const pdfDoc = await pdfjsLib.getDocument(sharedData.pdfs[currentPDF]).promise;
+                    const numPages = pdfDoc.numPages;
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    const img = new Image();
+                    img.src = signatureDataUrl;
+                    await new Promise((resolve) => { img.onload = resolve; });
+                    doc.addImage(img, 'PNG', 20, doc.internal.pageSize.height - 60, 50, 30);
+                    doc.save('documento_firmado.pdf');
+                    alert('Documento firmado correctamente');
+                };
+                reader.readAsDataURL(blob);
             } catch (error) {
-                console.error('Error al firmar el PDF:', error);
-                alert('Error al firmar el documento');
+                alert('Error al usar la firma: ' + error.message);
             }
         }
         
@@ -2103,32 +1388,85 @@
             
             const rowContent = document.getElementById('excel-row-content');
             rowContent.innerHTML = '';
+
+            // Definir las opciones para los campos de selección
+            const selectOptions = {
+                'CLAUSURA TERCERA': ['S', 'P'],
+                'PARÁGRAFO DIRECCIÓN MANEJO Y CONFIANZA': ['S', 'A', 'P'],
+                'NIVEL DE ESTUDIO': ['PRIMARIA', 'BACHILLER', 'TECNICO'],
+                'TARJETA-LICENCIA-MATRICULA-COPNIA': ['T', 'L', 'M', 'C'],
+                'COMPETENCIAS TÉCNICAS CUMPLE/NO CUMPLE/NO APLICA': ['S', 'A', 'P'],
+                'LICENCIA DE CONDUCCIÓN': ['S', 'P', 'A'],
+                'EXPERIENCIA LABORAL': ['S', 'A'],
+                'SIG-GR-F-42 SOLICITUD DE PERSONAL': ['S', 'P'],
+                'CERTIFICADO DE RESIDENCIA': ['S', 'A', 'P'],
+                'POSTULACIÓN APE': ['S', 'P'],
+                'APROBACIÓN SSTA CARGOS': ['S', 'A', 'P'],
+                'APROBACIÓN SSTA EMO': ['S', 'A', 'P'],
+                'SAGRILAFT': ['S', 'P'],
+                'ARL': ['S', 'P'],
+                'EPS': ['S', 'P'],
+                'AFP': ['S', 'P'],
+                'CESANTIAS': ['S', 'P'],
+                'CUENTA BANCARIA': ['S', 'P'],
+                'ESTADO': ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO']
+            };
+
+            // Campos de texto libre
+            const textAreas = ['TITULO', 'CURSOS', 'OBSERVACIONES'];
             
             headers.forEach((header, index) => {
                 const div = document.createElement('div');
                 div.className = 'form-group';
                 
                 const isDate = header.toLowerCase().includes('fecha');
-                const inputType = isDate ? 'date' : 'text';
                 let value = rowData[index] || '';
                 
                 if (isDate && value) {
-                    // Convertir fecha de Excel a formato YYYY-MM-DD
-                    try {
-                        const dateObj = new Date((value - 25569) * 86400 * 1000);
-                        value = dateObj.toISOString().split('T')[0];
-                    } catch (e) {
-                        console.error('Error al convertir fecha:', e);
-                    }
+                    value = formatDate(value);
+                }
+
+                let inputHtml = '';
+                
+                if (selectOptions[header]) {
+                    // Campo de selección
+                    inputHtml = `
+                        <select class="form-control" 
+                                data-row="${rowIndex}" 
+                                data-col="${index}">
+                            <option value="">Seleccione...</option>
+                            ${selectOptions[header].map(opt => 
+                                `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`
+                            ).join('')}
+                        </select>`;
+                } else if (textAreas.includes(header)) {
+                    // Campo de texto largo
+                    inputHtml = `
+                        <textarea class="form-control" 
+                                 data-row="${rowIndex}" 
+                                 data-col="${index}"
+                                 rows="3">${value}</textarea>`;
+                } else if (isDate) {
+                    // Campo de fecha
+                    inputHtml = `
+                        <input type="text" 
+                               value="${value}"
+                               data-row="${rowIndex}"
+                               data-col="${index}"
+                               data-is-date="true"
+                               placeholder="DD/MM/YYYY">`;
+                } else {
+                    // Campo de texto normal
+                    inputHtml = `
+                        <input type="text" 
+                               value="${value}"
+                               data-row="${rowIndex}"
+                               data-col="${index}">`;
                 }
                 
                 div.innerHTML = `
                     <label>${header}</label>
-                    <input type="${inputType}" 
-                           value="${value}"
-                           data-row="${rowIndex}"
-                           data-col="${index}"
-                           data-is-date="${isDate}">
+                    ${inputHtml}
                 `;
                 rowContent.appendChild(div);
             });
@@ -2137,6 +1475,25 @@
             document.getElementById('current-row-index').textContent = sharedData.currentRowIndex;
             document.getElementById('prev-row-btn').disabled = sharedData.currentRowIndex === 1;
             document.getElementById('next-row-btn').disabled = sharedData.currentRowIndex === sharedData.filteredRows.length;
+
+            // Agregar event listeners para los cambios
+            const inputs = rowContent.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.addEventListener('change', function(e) {
+                    const row = parseInt(this.dataset.row);
+                    const col = parseInt(this.dataset.col);
+                    const isDate = this.dataset.isDate === 'true';
+                    let value = this.value;
+
+                    if (isDate) {
+                        value = formatDate(value);
+                    }
+
+                    if (row >= 0 && col >= 0) {
+                        sharedData.excelData[row][col] = value;
+                    }
+                });
+            });
         }
 
         // Función para navegar a la fila anterior
@@ -2496,58 +1853,6 @@
                 console.error('Error al aprobar los documentos:', error);
                 alert('Error al aprobar los documentos: ' + error.message);
             }
-        }
-
-        // Función para cargar firma desde archivo local
-        async function loadSignatureFromFile() {
-            try {
-                const response = await fetch('firma.png');
-                if (!response.ok) throw new Error('No se pudo cargar la firma');
-                const blob = await response.blob();
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const signatureImage = document.getElementById('signature-image');
-                    signatureImage.src = e.target.result;
-                    signatureImage.style.display = 'block';
-                    signatureData = e.target.result;
-                };
-                reader.readAsDataURL(blob);
-            } catch (error) {
-                console.error('Error al cargar la firma:', error);
-                alert('No se pudo cargar la firma desde el archivo local');
-            }
-        }
-
-        // Función para cargar firma desde Supabase
-        async function loadSignatureFromSupabase() {
-            try {
-                const { data, error } = await supabase
-                    .storage
-                    .from('firmas')
-                    .download('firma.png');
-
-                if (error) throw error;
-
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const signatureImage = document.getElementById('signature-image');
-                    signatureImage.src = e.target.result;
-                    signatureImage.style.display = 'block';
-                    signatureData = e.target.result;
-                };
-                reader.readAsDataURL(data);
-            } catch (error) {
-                console.error('Error al cargar la firma desde Supabase:', error);
-                alert('No se pudo cargar la firma desde Supabase');
-            }
-        }
-
-        // Función para limpiar la firma
-        function clearSignature() {
-            const signatureImage = document.getElementById('signature-image');
-            signatureImage.src = '';
-            signatureImage.style.display = 'none';
-            signatureData = null;
         }
     </script>
 </body>
