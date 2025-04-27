@@ -666,9 +666,12 @@
                 // Convertir ArrayBuffer a Base64 para los PDFs
                 for (const filename in sharedData.pdfs) {
                     const arrayBuffer = sharedData.pdfs[filename];
-                    if (arrayBuffer && typeof arrayBuffer.byteLength === 'number') {
+                    console.log('Guardando PDF:', filename, arrayBuffer, typeof arrayBuffer, arrayBuffer instanceof ArrayBuffer);
+                    if (arrayBuffer && (arrayBuffer instanceof ArrayBuffer || ArrayBuffer.isView(arrayBuffer))) {
                         const base64 = arrayBufferToBase64(arrayBuffer);
                         dataToStore.pdfs[filename] = base64;
+                    } else {
+                        console.warn('El PDF no es un ArrayBuffer válido:', filename, arrayBuffer);
                     }
                 }
 
@@ -1240,7 +1243,13 @@
                 
                 // Guardar el PDF firmado
                 const pdfArrayBuffer = doc.output('arraybuffer');
-                sharedData.pdfs[`firmado_${filename}`] = pdfArrayBuffer;
+                if (pdfArrayBuffer instanceof ArrayBuffer) {
+                    sharedData.pdfs[`firmado_${filename}`] = pdfArrayBuffer;
+                } else if (pdfArrayBuffer.buffer instanceof ArrayBuffer) {
+                    sharedData.pdfs[`firmado_${filename}`] = pdfArrayBuffer.buffer;
+                } else {
+                    throw new Error('El PDF firmado no es un ArrayBuffer válido');
+                }
 
                 // Actualizar en Supabase
                 await saveToSupabase();
@@ -1595,11 +1604,16 @@
 
         // Función para convertir ArrayBuffer a Base64
         function arrayBufferToBase64(buffer) {
-            if (!buffer || typeof buffer.byteLength !== 'number') {
-                throw new Error('El buffer no es válido o está vacío.');
+            if (!buffer) throw new Error('Buffer vacío');
+            let bytes;
+            if (buffer instanceof ArrayBuffer) {
+                bytes = new Uint8Array(buffer);
+            } else if (ArrayBuffer.isView(buffer)) {
+                bytes = new Uint8Array(buffer.buffer);
+            } else {
+                throw new Error('No es un ArrayBuffer ni un TypedArray');
             }
             let binary = '';
-            const bytes = new Uint8Array(buffer);
             for (let i = 0; i < bytes.byteLength; i++) {
                 binary += String.fromCharCode(bytes[i]);
             }
