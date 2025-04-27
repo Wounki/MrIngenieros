@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="style.css">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión de Contratos</title>
@@ -109,8 +109,8 @@
                         <h3>Revisión de Datos</h3>
                         <div id="confirmador-excel-data" style="margin-top: 20px;">
                             <div style="margin-bottom: 10px;">
-                                <input type="text" id="confirmador-search-input" placeholder="Buscar..." style="width: 300px;">
-                                <button onclick="searchConfirmadorRows()">Buscar</button>
+                                <input type="text" id="confirmador-search-input-comparacion" placeholder="Buscar..." style="width: 300px;">
+                                <button onclick="searchConfirmadorRowsComparacion()">Buscar</button>
                             </div>
                             <div id="confirmador-row-viewer" style="border: 1px solid #ddd; padding: 15px; border-radius: 4px;">
                                 <h4>Fila <span id="confirmador-current-row-index">1</span> de <span id="confirmador-total-rows">0</span></h4>
@@ -132,8 +132,8 @@
                                 </button>
                             </div>
                             <div class="pdf-search-container">
-                                <input type="text" id="confirmador-search-input-pdf" class="pdf-search-input confirmador-pdf-search" placeholder="Buscar PDF por nombre...">
-                                <button onclick="searchConfirmadorPDFs(this)" class="pdf-search-btn">Buscar</button>
+                                <input type="text" id="confirmador-search-input-pdf-comparacion" class="pdf-search-input confirmador-pdf-search" placeholder="Buscar PDF por nombre...">
+                                <button onclick="searchConfirmadorPDFsComparacion(this)" class="pdf-search-btn">Buscar</button>
                             </div>
                             <div id="confirmador-pdf-list-content" class="pdf-content"></div>
                         </div>
@@ -142,9 +142,9 @@
                             <div class="pdf-container" id="confirmador-pdf-container">
                                 <div class="signature-container">
                                     <h3>Firma Digital</h3>
-                                    <input type="file" id="signature-input" class="signature-input" accept="image/*" onchange="handleFirmaUpload(event)">
-                                    <div id="signature-placeholder" class="signature-placeholder">
-                                        <img id="signature-preview" class="signature-preview" alt="Vista previa de la firma">
+                                    <input type="file" id="signature-input-comparacion" class="signature-input" accept="image/*" onchange="handleFirmaUpload(event)">
+                                    <div id="signature-placeholder-comparacion" class="signature-placeholder">
+                                        <img id="signature-preview-comparacion" class="signature-preview" alt="Vista previa de la firma">
                                     </div>
                                     <div class="signature-buttons">
                                         <button onclick="clearSignature()">Limpiar</button>
@@ -178,10 +178,10 @@
                     <h2>Autorización de Documento</h2>
                     <div class="search-container">
                         <input type="text" 
-                               id="confirmador-search-input" 
+                               id="confirmador-search-input-empleados" 
                                placeholder="Buscar persona por nombre o identificación..." 
                                class="search-input" 
-                               oninput="searchConfirmadorRows()">
+                               oninput="searchConfirmadorRowsEmpleados()">
                     </div>
                     <!-- Mensaje cuando no hay documentos -->
                     <div id="no-docs-message" style="display: none; padding: 15px; background: #fff3e0; border-radius: 4px; margin: 10px 0;">
@@ -204,7 +204,7 @@
                         <h3>Documentos PDF</h3>
                         <div class="pdf-search">
                             <input type="text" 
-                                   id="pdf-search-input" 
+                                   id="pdf-search-input-empleado" 
                                    placeholder="Buscar PDF..." 
                                    class="search-input">
                         </div>
@@ -216,14 +216,14 @@
                         <h3>Firma Digital</h3>
                         <div class="signature-container">
                             <input type="file" 
-                                   id="signature-input" 
+                                   id="signature-input-empleado" 
                                    class="signature-input" 
                                    accept="image/*" 
                                    onchange="handleFirmaUpload(event)">
-                            <div id="signature-placeholder" class="signature-placeholder">
+                            <div id="signature-placeholder-empleado" class="signature-placeholder">
                                 Haga clic aquí para cargar su firma
                             </div>
-                            <img id="signature-preview" class="signature-preview" alt="Vista previa de la firma">
+                            <img id="signature-preview-empleado" class="signature-preview" alt="Vista previa de la firma">
                         </div>
                         <div class="signature-buttons">
                             <button onclick="clearSignature()">Limpiar</button>
@@ -925,7 +925,7 @@
             });
 
             // Configurar búsqueda de PDFs
-            const pdfSearchInput = document.getElementById('pdf-search-input');
+            const pdfSearchInput = document.getElementById('pdf-search-input-empleado');
             pdfSearchInput.oninput = () => {
                 const searchTerm = pdfSearchInput.value.toLowerCase();
                 const pdfItems = pdfGrid.querySelectorAll('.pdf-item');
