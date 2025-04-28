@@ -1536,11 +1536,10 @@
                 'FORMATO MANEJO DE IMAGEN': ['S', 'P'],
                 'AUTORIZACION MEDIOS ELECTRÓNICOS': ['S', 'P'],
                 'SIG-GR-F-01 ENTREVISTA': ['S', 'P', 'A'],
-                'SIG-GR-F-03  ASIGNACIÓN ROL': ['S', 'P', 'A'],
+                'SIG-GR-F-03 ASIGNACIÓN ROL': ['S', 'P', 'A'],
                 'SIG-GR-F-37 HV CONDUCTORES': ['S', 'P', 'A'],
                 'SIG-GR-F-61 PERFIL DEL CARGO, FUNCIONES Y RESPONSABILIDADES': ['S', 'P'],
-                'HV DIGITAL COMPLETA SEGÚN SIG-GR-F-32 ': ['S', 'P'],
-
+                'HV DIGITAL COMPLETA SEGÚN SIG-GR-F-32': ['S', 'P'],
             };
 
             // Campos de texto libre
@@ -1555,32 +1554,36 @@
                 'FECHA DE EXPEDICIÓN DOC. IDENTIDAD',
                 'COMPETENCIAS TÉCNICAS'
             ];
-            
+
+            // Normalizar claves de selectOptions y textAreas
+            const selectOptionsNorm = {};
+            Object.keys(selectOptions).forEach(key => {
+                selectOptionsNorm[normalizarTexto(key)] = selectOptions[key];
+            });
+            const textAreasNorm = textAreas.map(normalizarTexto);
+
             headers.forEach((header, index) => {
                 const div = document.createElement('div');
                 div.className = 'form-group';
-                
+                const headerNorm = normalizarTexto(header);
                 const isDate = header.toLowerCase().includes('fecha');
                 let value = rowData[index] || '';
-                
                 if (isDate && value) {
                     value = formatDate(value);
                 }
-
                 let inputHtml = '';
-                
-                if (selectOptions[header]) {
+                if (selectOptionsNorm[headerNorm]) {
                     // Campo de selección
                     inputHtml = `
                         <select class="form-control" 
                                 data-row="${rowIndex}" 
                                 data-col="${index}">
                             <option value="">Seleccione...</option>
-                            ${selectOptions[header].map(opt => 
+                            ${selectOptionsNorm[headerNorm].map(opt => 
                                 `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`
                             ).join('')}
                         </select>`;
-                } else if (textAreas.includes(header)) {
+                } else if (textAreasNorm.includes(headerNorm)) {
                     // Campo de texto largo
                     inputHtml = `
                         <textarea class="form-control" 
@@ -1604,7 +1607,6 @@
                                data-row="${rowIndex}"
                                data-col="${index}">`;
                 }
-                
                 div.innerHTML = `
                     <label>${header}</label>
                     ${inputHtml}
@@ -2084,6 +2086,22 @@
                 }
             }
             alert('Datos cargados/actualizados en la base de datos.');
+        }
+
+        // Función para normalizar encabezados (quita tildes, espacios extra y saltos de línea)
+        function normalizarTexto(texto) {
+            return texto
+                .toUpperCase()
+                .replace(/[ÁÀÄÂ]/g, 'A')
+                .replace(/[ÉÈËÊ]/g, 'E')
+                .replace(/[ÍÌÏÎ]/g, 'I')
+                .replace(/[ÓÒÖÔ]/g, 'O')
+                .replace(/[ÚÙÜÛ]/g, 'U')
+                .replace(/Ñ/g, 'N')
+                .replace(/[^A-Z0-9 ]/g, '')
+                .replace(/\s+/g, ' ')
+                .replace(/\r?\n|\r/g, ' ')
+                .trim();
         }
     </script>
 </body>
