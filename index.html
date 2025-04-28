@@ -2051,6 +2051,8 @@
                         .replace(/_$/g, '')
                         .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i').replace(/ó/g, 'o').replace(/ú/g, 'u')
                         .replace(/ñ/g, 'n');
+                    // Mapeo especial para la clave primaria
+                    if (key === 'no_de_identificacion') key = 'no_identificacion';
                     registro[key] = fila[idx] || null;
                 });
                 // Fechas
@@ -2059,6 +2061,7 @@
                 if (registro.fecha_terminacion) registro.fecha_terminacion = formatearFecha(registro.fecha_terminacion);
                 if (registro.fecha_firma_contrato) registro.fecha_firma_contrato = formatearFecha(registro.fecha_firma_contrato);
                 if (registro.no_identificacion) {
+                    console.log('Registro a guardar:', registro); // <-- Agrega esto
                     await supabase
                         .from('empleados')
                         .upsert([registro], { onConflict: 'no_identificacion' });
