@@ -508,26 +508,24 @@
                     throw new Error('El archivo Excel está vacío o no tiene datos suficientes');
                 }
 
-                // Obtener headers
+                // Obtener headers normalizados
                 const headers = newData[0];
-                const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
-                const documentoIndex = headers.indexOf('No. DE IDENTIFICACIÓN');
+                const normalizedHeaders = headers.map(h => h.toString().trim().toUpperCase());
 
                 // Validar columnas requeridas y mapear nombres de columnas
                 const columnMapping = {
-                    'NOMBRES Y APELLIDOS': ['NOMBRES Y APELLIDOS'],
-                    'DOCUMENTO': ['No. DE IDENTIFICACIÓN', 'DOCUMENTO', 'No. DE IDENTIFICACION']
+                    'NOMBRES Y APELLIDOS': ['NOMBRES Y APELLIDOS', 'NOMBRES_Y_APELLIDOS'],
+                    'DOCUMENTO': ['NO. DE IDENTIFICACIÓN', 'DOCUMENTO', 'NO. DE IDENTIFICACION', 'NO_DE_IDENTIFICACION']
                 };
 
                 const columnasRequeridas = Object.keys(columnMapping);
                 const columnasFaltantes = columnasRequeridas.filter(colReq => {
-                    // Verificar si alguna de las variantes de la columna existe
-                    return !columnMapping[colReq].some(variant => headers.includes(variant));
+                    // Verificar si alguna de las variantes de la columna existe (normalizadas)
+                    return !columnMapping[colReq].some(variant => normalizedHeaders.includes(variant.toUpperCase()));
                 });
 
                 if (columnasFaltantes.length > 0) {
-                    throw new Error(`El archivo Excel debe contener las siguientes columnas obligatorias: ${columnasFaltantes.join(', ')}. 
-                    \nColumnas encontradas en tu Excel: ${headers.join(', ')}`);
+                    throw new Error(`El archivo Excel debe contener las siguientes columnas obligatorias: ${columnasFaltantes.join(', ')}. \nColumnas encontradas en tu Excel: ${headers.join(', ')}`);
                 }
 
                 // Resto del código igual...
