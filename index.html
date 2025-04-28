@@ -1120,7 +1120,7 @@
                 return;
             }
 
-            currentPDF = filename; // Establecer currentPDF
+            currentPDF = filename;
 
             let pdfViewer = document.getElementById('pdf-viewer-modal');
             if (!pdfViewer) {
@@ -1137,12 +1137,14 @@
                         <button onclick="closePDFViewer()" class="close-btn">×</button>
                     </div>
                     <div class="pdf-container" id="pdf-container-modal"></div>
-                    <div class="firma-section">
-                        <div class="signature-preview-container">
-                            <img id="signature-display" src="${window.firmaUrl || ''}" alt="Firma" style="max-width: 200px; margin: 10px 0; ${window.firmaUrl ? '' : 'display: none;'}">
+                    ${currentUser && currentUser.role === 'confirmador' ? `
+                        <div class="firma-section">
+                            <div class="signature-preview-container">
+                                <img id="signature-display" src="${window.firmaUrl || ''}" alt="Firma" style="max-width: 200px; margin: 10px 0; ${window.firmaUrl ? '' : 'display: none;'}">
+                            </div>
+                            <button onclick="firmarPDF()" class="firma-btn">Firmar Documento</button>
                         </div>
-                        <button onclick="firmarPDF()" class="firma-btn">Firmar Documento</button>
-                    </div>
+                    ` : ''}
                 </div>
             `;
 
