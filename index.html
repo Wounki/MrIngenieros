@@ -1508,11 +1508,11 @@
             const selectOptions = {
                 'CLAUSURA TERCERA': ['S', 'P'],
                 'PARÁGRAFO DIRECCIÓN MANEJO Y CONFIANZA': ['S', 'A', 'P'],
-                'NIVEL DE ESTUDIO': ['PRIMARIA', 'BACHILLER', 'TECNICO'],
+                'NIVEL DE ESTUDIO': ['SIN ESCOLARIDAD', 'PRIMARIA', 'BACHILLER', 'TECNICO', 'TÉCNOLOGO', 'PROFESIONAL', 'MAESTRÍA', 'DOCTORADO', 'P'],
                 'TARJETA-LICENCIA-MATRICULA-COPNIA': ['T', 'L', 'M', 'C'],
                 'COMPETENCIAS TÉCNICAS CUMPLE/NO CUMPLE/NO APLICA': ['S', 'A', 'P'],
                 'LICENCIA DE CONDUCCIÓN': ['S', 'P', 'A'],
-                'EXPERIENCIA LABORAL': ['S', 'A'],
+                'EXPERIENCIA LABORAL': ['S', 'A', 'P'],
                 'SIG-GR-F-42 SOLICITUD DE PERSONAL': ['S', 'P'],
                 'CERTIFICADO DE RESIDENCIA': ['S', 'A', 'P'],
                 'POSTULACIÓN APE': ['S', 'P'],
@@ -1528,7 +1528,15 @@
             };
 
             // Campos de texto libre
-            const textAreas = ['TITULO', 'CURSOS', 'OBSERVACIONES'];
+            const textAreas = [
+                'TITULO',
+                'CURSOS',
+                'OBSERVACIONES',
+                'EPS',
+                'AFP',
+                'CESANTIAS',
+                'COMPETENCIAS TÉCNICAS CUMPLE/NO CUMPLE/NO APLICA'
+            ];
             
             headers.forEach((header, index) => {
                 const div = document.createElement('div');
