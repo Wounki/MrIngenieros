@@ -505,8 +505,9 @@
 
                 // Obtener headers
                 const headers = newData[0];
-                const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
-                const documentoIndex = headers.indexOf('No. DE IDENTIFICACIÓN');
+                // Buscar los índices usando encabezados normalizados
+                const nombreIndex = headers.findIndex(h => normalizarTexto(h) === 'NOMBRES Y APELLIDOS');
+                const documentoIndex = headers.findIndex(h => normalizarTexto(h) === 'NO DE IDENTIFICACION');
 
                 // Validar columnas requeridas y mapear nombres de columnas
                 const columnMapping = {
@@ -516,13 +517,12 @@
 
                 const columnasRequeridas = Object.keys(columnMapping);
                 const columnasFaltantes = columnasRequeridas.filter(colReq => {
-                    // Verificar si alguna de las variantes de la columna existe
-                    return !columnMapping[colReq].some(variant => headers.includes(variant));
+                    // Verificar si alguna de las variantes de la columna existe (normalizando)
+                    return !columnMapping[colReq].some(variant => headers.some(h => normalizarTexto(h) === normalizarTexto(variant)));
                 });
 
                 if (columnasFaltantes.length > 0) {
-                    throw new Error(`El archivo Excel debe contener las siguientes columnas obligatorias: ${columnasFaltantes.join(', ')}. 
-                    \nColumnas encontradas en tu Excel: ${headers.join(', ')}`);
+                    throw new Error(`El archivo Excel debe contener las siguientes columnas obligatorias: ${columnasFaltantes.join(', ')}. \nColumnas encontradas en tu Excel: ${headers.join(', ')}`);
                 }
 
                 // Resto del código igual...
