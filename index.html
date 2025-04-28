@@ -567,7 +567,8 @@
                     
                     if (existingEmployees.has(key)) {
                         const existingRow = existingEmployees.get(key);
-                        const estadoIndex = headers.indexOf('ESTADO');
+                        // Buscar el índice de ESTADO usando encabezados normalizados
+                        const estadoIndex = normalizedHeaders.findIndex(h => h === 'ESTADO');
                         if (estadoIndex !== -1) {
                             row[estadoIndex] = existingRow[estadoIndex] || 'SIN REVISION';
                         }
