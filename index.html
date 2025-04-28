@@ -379,7 +379,7 @@
                 event.target.value = '';
                 return;
             }
-            // Fijar la URL pública de la firma directamente
+            // Fijar la URL pública de la firma directamente con doble barra
             window.firmaUrl = "https://ixhsjtsilnfhuzgvkyve.supabase.co/storage/v1/object/public/firmas//firma.png";
             document.querySelectorAll('.signature-preview').forEach(preview => {
                 preview.src = window.firmaUrl;
@@ -388,8 +388,7 @@
             document.querySelectorAll('.signature-placeholder').forEach(placeholder => {
                 placeholder.style.display = 'none';
             });
-            // Opcional: puedes mostrar un mensaje de éxito
-            alert('Firma cargada correctamente (usando la URL fija).');
+            alert('Firma cargada correctamente (usando la URL fija con doble barra).');
         }
 
         // Función para cargar Excel
