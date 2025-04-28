@@ -1954,6 +1954,26 @@
                 alert('Error al aprobar los documentos: ' + error.message);
             }
         }
+
+        // Función para actualizar el estado del documento en el Excel según el nombre del PDF
+        function updateDocumentStatus(pdfName, nuevoEstado) {
+            if (!sharedData.excelData) return;
+            const headers = sharedData.excelData[0];
+            const pdfIndex = headers.indexOf('PDF_ASOCIADO');
+            const estadoIndex = headers.indexOf('ESTADO');
+            for (let i = 1; i < sharedData.excelData.length; i++) {
+                const row = sharedData.excelData[i];
+                if (row && row[pdfIndex] === pdfName) {
+                    row[estadoIndex] = nuevoEstado;
+                    break;
+                }
+            }
+        }
+
+        // Función para clonar un ArrayBuffer
+        function cloneArrayBuffer(buffer) {
+            return buffer.slice(0);
+        }
     </script>
 </body>
 </html>
