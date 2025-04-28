@@ -855,24 +855,28 @@
         
         // Función para mostrar un PDF
         function displayPDF(filename) {
-            const pdfData = sharedData.pdfs[filename];  // Usar sharedData.pdfs
+            const pdfData = sharedData.pdfs[filename];
+            if (!pdfData) {
+                alert('Error: PDF no encontrado.');
+                return;
+            }
             currentPDF = filename;
-            
+
             document.getElementById('pdf-viewer').style.display = 'block';
             document.getElementById('current-pdf-name').textContent = filename;
-            
+
             const container = document.getElementById('pdf-container');
             container.innerHTML = '';
-            
-            const pdfBlob = new Blob([pdfData], {type: 'application/pdf'});
+
+            const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
             const pdfUrl = URL.createObjectURL(pdfBlob);
-            
+
             const iframe = document.createElement('iframe');
             iframe.src = pdfUrl;
             iframe.width = '100%';
             iframe.height = '100%';
             iframe.style.border = 'none';
-            
+
             container.appendChild(iframe);
         }
         
@@ -1123,10 +1127,12 @@
             const pdfData = sharedData.pdfs[filename];
             if (!pdfData) {
                 console.error('PDF no encontrado:', filename);
+                alert('Error: PDF no encontrado.');
                 return;
             }
 
-            // Crear o obtener el contenedor del visor de PDF
+            currentPDF = filename; // Establecer currentPDF
+
             let pdfViewer = document.getElementById('pdf-viewer-modal');
             if (!pdfViewer) {
                 pdfViewer = document.createElement('div');
@@ -1135,7 +1141,6 @@
                 document.body.appendChild(pdfViewer);
             }
 
-            // Actualizar el contenido del visor
             pdfViewer.innerHTML = `
                 <div class="pdf-viewer-content">
                     <div class="pdf-viewer-header">
@@ -1145,21 +1150,19 @@
                     <div class="pdf-container" id="pdf-container-modal"></div>
                     <div class="firma-section">
                         <div class="signature-preview-container">
-                            <img id="signature-display" src="${SIGNATURE_BASE64}" alt="Firma" style="max-width: 200px; margin: 10px 0;">
+                            <img id="signature-display" src="${window.firmaUrl || ''}" alt="Firma" style="max-width: 200px; margin: 10px 0; ${window.firmaUrl ? '' : 'display: none;'}">
                         </div>
-                        <button onclick="firmarPDFConfirmador('${filename}')" class="firma-btn">Firmar Documento</button>
+                        <button onclick="firmarPDF()" class="firma-btn">Firmar Documento</button>
                     </div>
                 </div>
             `;
 
-            // Mostrar el visor
             pdfViewer.style.display = 'flex';
 
-            // Cargar el PDF en el visor
-            const pdfBlob = new Blob([pdfData], {type: 'application/pdf'});
+            const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
             const pdfUrl = URL.createObjectURL(pdfBlob);
             const container = document.getElementById('pdf-container-modal');
-            
+
             const iframe = document.createElement('iframe');
             iframe.src = pdfUrl;
             iframe.style.width = '100%';
@@ -1175,96 +1178,122 @@
             }
         }
 
-        async function firmarPDFConfirmador(filename) {
+        async function firmarPDF() {
+            if (!currentPDF || !sharedData.pdfs[currentPDF]) {
+                alert('Por favor, seleccione un PDF antes de firmar.');
+                return;
+            }
+
+            if (!window.firmaUrl) {
+                alert('Por favor, cargue una firma antes de firmar.');
+                return;
+            }
+
             try {
-                if (!filename || !sharedData.pdfs[filename]) {
-                    throw new Error('PDF no encontrado');
+                // Obtener el PDF original desde sharedData.pdfs
+                const pdfData = sharedData.pdfs[currentPDF];
+                if (!(pdfData instanceof ArrayBuffer)) {
+                    throw new Error('Los datos del PDF no son válidos.');
                 }
 
-                // Obtener el PDF original
-                const pdfData = sharedData.pdfs[filename];
-                
                 // Cargar el PDF usando pdf.js
                 const pdfDoc = await pdfjsLib.getDocument(pdfData).promise;
                 const numPages = pdfDoc.numPages;
-                
-                // Crear un nuevo PDF con el contenido original
+
+                // Crear un nuevo PDF con jsPDF
                 const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                
-                // Copiar cada página del PDF original al nuevo PDF
+                const doc = new jsPDF({
+                    format: 'a4',
+                    unit: 'px'
+                });
+
+                // Copiar todas las páginas del PDF original
                 for (let i = 1; i <= numPages; i++) {
                     const page = await pdfDoc.getPage(i);
                     const viewport = page.getViewport({ scale: 1.0 });
-                    
+
+                    // Crear un canvas para renderizar la página
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
                     canvas.height = viewport.height;
                     canvas.width = viewport.width;
-                    
+
+                    // Renderizar la página en el canvas
                     await page.render({
                         canvasContext: context,
                         viewport: viewport
                     }).promise;
-                    
+
+                    // Convertir el canvas a imagen y añadirlo al PDF
+                    const imgData = canvas.toDataURL('image/jpeg', 1.0);
                     if (i > 1) {
                         doc.addPage();
                     }
-                    
-                    // Agregar la página al nuevo PDF
                     doc.addImage(
-                        canvas.toDataURL('image/jpeg', 1.0),
+                        imgData,
                         'JPEG',
                         0,
                         0,
                         doc.internal.pageSize.width,
                         doc.internal.pageSize.height
                     );
-                }
-                
-                // Cargar la firma como imagen
-                const img = new Image();
-                img.src = SIGNATURE_BASE64;
-                
-                // Esperar a que la imagen se cargue
-                await new Promise((resolve) => {
-                    img.onload = resolve;
-                });
-                
-                // Añadir la firma en la última página
-                doc.addImage(
-                    img,
-                    'PNG',
-                    doc.internal.pageSize.width - 70,
-                    20,
-                    50,
-                    30
-                );
-                
-                // Guardar el PDF firmado
-                const pdfArrayBuffer = doc.output('arraybuffer');
-                if (pdfArrayBuffer instanceof ArrayBuffer) {
-                    sharedData.pdfs[`firmado_${filename}`] = pdfArrayBuffer;
-                } else if (pdfArrayBuffer.buffer instanceof ArrayBuffer) {
-                    sharedData.pdfs[`firmado_${filename}`] = pdfArrayBuffer.buffer;
-                } else {
-                    throw new Error('El PDF firmado no es un ArrayBuffer válido');
+
+                    // Añadir la firma solo en la última página
+                    if (i === numPages) {
+                        // Descargar la imagen de la firma desde la URL
+                        const response = await fetch(window.firmaUrl);
+                        if (!response.ok) {
+                            throw new Error('No se pudo descargar la imagen de la firma.');
+                        }
+                        const blob = await response.blob();
+                        const reader = new FileReader();
+                        const signatureDataUrl = await new Promise((resolve, reject) => {
+                            reader.onload = () => resolve(reader.result);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+
+                        const img = new Image();
+                        img.src = signatureDataUrl;
+                        await new Promise((resolve) => { img.onload = resolve; });
+
+                        // Ajustar posición y tamaño de la firma
+                        doc.addImage(
+                            img,
+                            'PNG',
+                            doc.internal.pageSize.width - 100, // Posición X
+                            doc.internal.pageSize.height - 60, // Posición Y
+                            80, // Ancho
+                            40 // Alto
+                        );
+                    }
                 }
 
-                // Actualizar en Supabase
+                // Guardar el PDF firmado en sharedData
+                const pdfArrayBuffer = doc.output('arraybuffer');
+                const signedFilename = `firmado_${currentPDF}`;
+                sharedData.pdfs[signedFilename] = pdfArrayBuffer;
+
+                // Guardar en Supabase
                 await saveToSupabase();
 
-                // Crear y descargar el PDF firmado
+                // Crear Blob y descargar el PDF firmado
                 const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `firmado_${filename}`;
+                a.download = signedFilename;
                 a.click();
                 URL.revokeObjectURL(url);
 
-                alert('Documento firmado y guardado exitosamente');
-                closePDFViewer();
+                // Actualizar la interfaz
+                updateConfirmadorPDFList();
+                alert('Documento firmado y guardado exitosamente.');
+
+                // Actualizar el estado del documento en el Excel si es necesario
+                if (currentUser.role === 'confirmador') {
+                    updateDocumentStatus(currentPDF, 'AUTORIZADO');
+                }
 
             } catch (error) {
                 console.error('Error al firmar el PDF:', error);
