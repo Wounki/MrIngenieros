@@ -1718,15 +1718,149 @@
                     alert('No hay empleados almacenados.');
                     return;
                 }
-                // Convertir los datos a formato de hoja de cálculo
-                const headers = Object.keys(data[0]);
-                const rows = data.map(obj => headers.map(h => obj[h]));
-                const aoa = [headers, ...rows];
-                const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+                // Definir el orden de las columnas según el Excel original
+                const columnOrder = [
+                    'item',
+                    'tipo_contrato',
+                    'nombres_y_apellidos',
+                    'tipo_documento_identificacion',
+                    'no_de_identificacion',
+                    'lugar_expedicion_documento_identificacion',
+                    'fecha_de_nacimiento',
+                    'lugar_de_nacimiento',
+                    'nacionalidad',
+                    'direccion_de_residencia',
+                    'municipio_departamento_residencia',
+                    'telefono_celular',
+                    'correo_electronico',
+                    'cargo',
+                    'categoria_tabla',
+                    'proyecto_y_o_orden_de_servicio',
+                    'obra_o_labor_contratada',
+                    'lugar_de_ejecucion',
+                    'fecha_de_inicio',
+                    'periodo_de_prueba',
+                    'fecha_terminacion',
+                    'salario',
+                    'salario_letras',
+                    'clausura_tercera',
+                    'horario_laboral',
+                    'paragrafo_direccion_manejo_y_confianza',
+                    'fecha_firma_contrato',
+                    'nivel_de_estudio',
+                    'titulo',
+                    'tarjeta_licencia_matricula_copnia',
+                    'competencias_tecnicas_cumple_no_cumple_no_aplica',
+                    'cursos',
+                    'licencia_de_conduccion',
+                    'experiencia_laboral',
+                    'sig_gr_f_42_solicitud_de_personal',
+                    'certificado_de_residencia',
+                    'postulacion_ape',
+                    'aprobacion_ssta_cargos',
+                    'aprobacion_ssta_emo',
+                    'sagrilaft',
+                    'arl',
+                    'eps',
+                    'afp',
+                    'cesantias',
+                    'cuenta_bancaria',
+                    'banco',
+                    'fecha_expedicion_doc_identidad',
+                    'sexo',
+                    'estado_civil',
+                    'confirmacion_contratacion_gerencia_operaciones',
+                    'observaciones',
+                    'estado',
+                    'sig_gr_f_06_induccion',
+                    'sig_gr_f_31_funciones',
+                    'sig_gr_f_27_informacion_trabajador',
+                    'sig_gr_f_04_dotacion_y_epps',
+                    'formato_manejo_de_imagen',
+                    'autorizacion_medios_electronicos',
+                    'sig_gr_f_01_entrevista',
+                    'sig_gr_f_03_asignacion_rol',
+                    'sig_gr_f_37_hv_conductores',
+                    'sig_gr_f_61_perfil_del_cargo_funciones_y_responsabilidades',
+                    'hv_digital_completa_segun_sig_gr_f_32'
+                ];
+
+                // Convertir los nombres de columnas a formato legible
+                const headers = columnOrder.map(col => {
+                    return col
+                        .split('_')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(' ')
+                        .replace(/([a-z])([A-Z])/g, '$1 $2')
+                        .toUpperCase();
+                });
+
+                // Preparar los datos en el orden correcto
+                const rows = data.map(obj => 
+                    columnOrder.map(key => obj[key] || '')
+                );
+
+                // Crear el libro de trabajo y la hoja
                 const wb = XLSX.utils.book_new();
+                const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+                // Configurar el ancho de las columnas
+                const columnWidths = headers.map(header => ({
+                    wch: Math.max(20, header.length * 1.2)
+                }));
+                ws['!cols'] = columnWidths;
+
+                // Aplicar estilos a los encabezados
+                const headerStyle = {
+                    font: { bold: true, color: { rgb: "FFFFFF" } },
+                    fill: { fgColor: { rgb: "4CAF50" } },
+                    alignment: { horizontal: "center", vertical: "center", wrapText: true }
+                };
+
+                // Aplicar estilos a las celdas de datos
+                const dataStyle = {
+                    alignment: { vertical: "center", wrapText: true },
+                    border: {
+                        top: { style: "thin" },
+                        bottom: { style: "thin" },
+                        left: { style: "thin" },
+                        right: { style: "thin" }
+                    }
+                };
+
+                // Aplicar estilos a todas las celdas
+                for (let i = 0; i < rows.length + 1; i++) {
+                    for (let j = 0; j < headers.length; j++) {
+                        const cellRef = XLSX.utils.encode_cell({ r: i, c: j });
+                        if (!ws[cellRef]) ws[cellRef] = { v: "" };
+                        
+                        if (i === 0) {
+                            // Estilos para encabezados
+                            ws[cellRef].s = headerStyle;
+                        } else {
+                            // Estilos para datos
+                            ws[cellRef].s = dataStyle;
+                        }
+                    }
+                }
+
+                // Establecer el rango de la hoja
+                ws['!ref'] = XLSX.utils.encode_range({
+                    s: { c: 0, r: 0 },
+                    e: { c: headers.length - 1, r: rows.length }
+                });
+
+                // Añadir la hoja al libro
                 XLSX.utils.book_append_sheet(wb, ws, 'Empleados');
+
                 // Descargar el archivo
-                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                const wbout = XLSX.write(wb, { 
+                    bookType: 'xlsx', 
+                    type: 'array',
+                    cellStyles: true
+                });
+                
                 const blob = new Blob([wbout], { type: 'application/octet-stream' });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -1734,6 +1868,7 @@
                 a.download = 'empleados_supabase.xlsx';
                 a.click();
                 window.URL.revokeObjectURL(url);
+
             } catch (error) {
                 console.error('Error al descargar el Excel desde Supabase:', error);
                 alert('Error al descargar el archivo Excel desde Supabase');
