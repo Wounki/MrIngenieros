@@ -439,11 +439,6 @@
                             throw new Error('El archivo Excel no contiene datos suficientes');
                         }
 
-                        // Normalizar encabezados
-                        if (newExcelData && newExcelData.length > 0) {
-                            newExcelData[0] = newExcelData[0].map(normalizarColumna);
-                        }
-
                         // Obtener datos existentes de Supabase
                         const { data: existingData, error } = await supabase
                             .from('excel_data')
@@ -508,24 +503,26 @@
                     throw new Error('El archivo Excel está vacío o no tiene datos suficientes');
                 }
 
-                // Obtener headers normalizados
+                // Obtener headers
                 const headers = newData[0];
-                const normalizedHeaders = headers.map(h => h.toString().trim().toUpperCase());
+                const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
+                const documentoIndex = headers.indexOf('No. DE IDENTIFICACIÓN');
 
                 // Validar columnas requeridas y mapear nombres de columnas
                 const columnMapping = {
-                    'NOMBRES Y APELLIDOS': ['NOMBRES Y APELLIDOS', 'NOMBRES_Y_APELLIDOS'],
-                    'DOCUMENTO': ['NO. DE IDENTIFICACIÓN', 'DOCUMENTO', 'NO. DE IDENTIFICACION', 'NO_DE_IDENTIFICACION']
+                    'NOMBRES Y APELLIDOS': ['NOMBRES Y APELLIDOS'],
+                    'DOCUMENTO': ['No. DE IDENTIFICACIÓN', 'DOCUMENTO', 'No. DE IDENTIFICACION']
                 };
 
                 const columnasRequeridas = Object.keys(columnMapping);
                 const columnasFaltantes = columnasRequeridas.filter(colReq => {
-                    // Verificar si alguna de las variantes de la columna existe (normalizadas)
-                    return !columnMapping[colReq].some(variant => normalizedHeaders.includes(variant.toUpperCase()));
+                    // Verificar si alguna de las variantes de la columna existe
+                    return !columnMapping[colReq].some(variant => headers.includes(variant));
                 });
 
                 if (columnasFaltantes.length > 0) {
-                    throw new Error(`El archivo Excel debe contener las siguientes columnas obligatorias: ${columnasFaltantes.join(', ')}. \nColumnas encontradas en tu Excel: ${headers.join(', ')}`);
+                    throw new Error(`El archivo Excel debe contener las siguientes columnas obligatorias: ${columnasFaltantes.join(', ')}. 
+                    \nColumnas encontradas en tu Excel: ${headers.join(', ')}`);
                 }
 
                 // Resto del código igual...
@@ -567,8 +564,7 @@
                     
                     if (existingEmployees.has(key)) {
                         const existingRow = existingEmployees.get(key);
-                        // Buscar el índice de ESTADO usando encabezados normalizados
-                        const estadoIndex = normalizedHeaders.findIndex(h => h === 'ESTADO');
+                        const estadoIndex = headers.indexOf('ESTADO');
                         if (estadoIndex !== -1) {
                             row[estadoIndex] = existingRow[estadoIndex] || 'SIN REVISION';
                         }
@@ -706,21 +702,24 @@
                 }
                 return;
             }
+            
             const rowViewer = document.getElementById('confirmador-row-content');
             if (!rowViewer) return;
+            
             const headers = sharedData.excelData[0];
             const rowIndex = sharedData.filteredRows[sharedData.currentRowIndex - 1];
             const rowData = sharedData.excelData[rowIndex] || [];
+            
             rowViewer.innerHTML = '';
-
-            // Opciones para el campo ESTADO
-            const estadoOptions = ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO'];
-
+            
             headers.forEach((header, index) => {
                 const div = document.createElement('div');
                 div.className = 'form-group';
-                if (normalizeHeader(header) === 'ESTADO') {
+                
+                if (header === 'ESTADO' || index === 45) {
+                    const estadoOptions = ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO'];
                     const currentValue = rowData[index] || 'SIN REVISION';
+                    
                     div.innerHTML = `
                         <label>${header}</label>
                         <select class="estado-select" data-row="${rowIndex}" data-col="${index}">
@@ -737,21 +736,7 @@
                 }
                 rowViewer.appendChild(div);
             });
-
-            // Event listener para el select de ESTADO
-            const estadoSelect = rowViewer.querySelector('.estado-select');
-            if (estadoSelect) {
-                estadoSelect.addEventListener('change', function(e) {
-                    const row = parseInt(this.dataset.row);
-                    const col = parseInt(this.dataset.col);
-                    const value = this.value;
-                    if (row >= 0 && col >= 0) {
-                        sharedData.excelData[row][col] = value;
-                        saveToSupabase();
-                    }
-                });
-            }
-
+            
             // Actualizar navegación
             document.getElementById('confirmador-current-row-index').textContent = sharedData.currentRowIndex;
             document.getElementById('confirmador-total-rows').textContent = sharedData.filteredRows.length;
@@ -927,27 +912,10 @@
                 if (header && rowData[index]) {
                     const infoItem = document.createElement('div');
                     infoItem.className = 'info-item';
-                    
-                    // Si es el campo ESTADO, mostrar un select
-                    if (header === 'ESTADO') {
-                        const estadoOptions = ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO'];
-                        infoItem.innerHTML = `
-                            <label>${header}</label>
-                            <select class="estado-select" 
-                                    data-row="${rowIndex}" 
-                                    data-col="${index}"
-                                    onchange="updateEstado(this.value, ${rowIndex}, ${index})">
-                                ${estadoOptions.map(opt => 
-                                    `<option value="${opt}" ${rowData[index] === opt ? 'selected' : ''}>${opt}</option>`
-                                ).join('')}
-                            </select>
-                        `;
-                    } else {
-                        infoItem.innerHTML = `
-                            <label>${header}</label>
-                            <span>${rowData[index]}</span>
-                        `;
-                    }
+                    infoItem.innerHTML = `
+                        <label>${header}</label>
+                        <span>${rowData[index]}</span>
+                    `;
                     infoGrid.appendChild(infoItem);
                 }
             });
@@ -981,21 +949,16 @@
         }
 
         // Función para actualizar el estado
-        function updateEstado(newEstado, rowIndex, colIndex) {
+        function updateEstado(newEstado) {
+            const estadoSelect = document.getElementById('estado-select');
+            const rowIndex = parseInt(estadoSelect.dataset.rowIndex);
             if (!sharedData.excelData || !sharedData.excelData[rowIndex]) return;
-            
-            sharedData.excelData[rowIndex][colIndex] = newEstado;
+
+            const headers = sharedData.excelData[0];
+            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
+            sharedData.excelData[rowIndex][estadoIndex] = newEstado;
             saveToSupabase();
-            
-            // Actualizar la tarjeta del empleado en la lista
-            const empleadoCard = document.querySelector(`#empleados-list .empleado-card:nth-child(${rowIndex})`);
-            if (empleadoCard) {
-                empleadoCard.className = `empleado-card ${newEstado.toLowerCase().replace(' ', '-')}`;
-                const estadoSpan = empleadoCard.querySelector('.empleado-estado');
-                if (estadoSpan) {
-                    estadoSpan.textContent = `Estado: ${newEstado}`;
-                }
-            }
+            displayEmpleadosList();
         }
 
         // Función para mostrar el diálogo de firma
@@ -1529,11 +1492,6 @@
             });
         }
 
-        // Función para normalizar encabezados
-        function normalizeHeader(header) {
-            return header.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
-        }
-
         // Función para mostrar una fila del Excel
         function displayExcelRow() {
             if (!sharedData.excelData || sharedData.excelData.length <= 1) {
@@ -1582,7 +1540,7 @@
                 'SIG-GR-F-37 HV CONDUCTORES': ['S', 'P', 'A'],
                 'SIG-GR-F-61 PERFIL DEL CARGO, FUNCIONES Y RESPONSABILIDADES': ['S', 'P'],
                 'HV DIGITAL COMPLETA SEGÚN SIG-GR-F-32 ': ['S', 'P'],
-                
+
             };
 
             // Campos de texto libre
@@ -1598,22 +1556,11 @@
                 'COMPETENCIAS TÉCNICAS'
             ];
             
-            // Normaliza las claves de selectOptions
-            const selectOptionsNormalized = {};
-            Object.keys(selectOptions).forEach(key => {
-                selectOptionsNormalized[normalizeHeader(key)] = selectOptions[key];
-            });
-            
             headers.forEach((header, index) => {
-                const normalizedHeader = normalizeHeader(header);
-                // Si la columna anterior es 'COMPETENCIAS TÉCNICAS CUMPLE/NO CUMPLE/NO APLICA', saltar esta columna (es la del textarea)
-                if (index > 0 && normalizeHeader(headers[index - 1]) === 'COMPETENCIAS TÉCNICAS CUMPLE/NO CUMPLE/NO APLICA') {
-                    return;
-                }
                 const div = document.createElement('div');
                 div.className = 'form-group';
                 
-                const isDate = normalizedHeader.toLowerCase().includes('fecha');
+                const isDate = header.toLowerCase().includes('fecha');
                 let value = rowData[index] || '';
                 
                 if (isDate && value) {
@@ -1622,36 +1569,18 @@
 
                 let inputHtml = '';
                 
-                if (normalizedHeader === 'COMPETENCIAS TÉCNICAS CUMPLE/NO CUMPLE/NO APLICA') {
-                    // Mostrar select y textarea juntos
-                    const obsCompIndex = headers.findIndex(h => normalizeHeader(h) === 'OBSERVACIÓN COMPETENCIAS TÉCNICAS');
+                if (selectOptions[header]) {
+                    // Campo de selección
                     inputHtml = `
                         <select class="form-control" 
                                 data-row="${rowIndex}" 
                                 data-col="${index}">
                             <option value="">Seleccione...</option>
-                            ${(selectOptionsNormalized[normalizedHeader] || []).map(opt => 
-                                `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`
-                            ).join('')}
-                        </select>
-                        <textarea class="form-control" 
-                                 data-row="${rowIndex}" 
-                                 data-col="${obsCompIndex}"
-                                 rows="2"
-                                 placeholder="Observaciones adicionales...">${rowData[obsCompIndex] || ''}</textarea>
-                    `;
-                } else if (selectOptionsNormalized[normalizedHeader]) {
-                    // Campo de selección normal
-                    inputHtml = `
-                        <select class="form-control" 
-                                data-row="${rowIndex}" 
-                                data-col="${index}">
-                            <option value="">Seleccione...</option>
-                            ${selectOptionsNormalized[normalizedHeader].map(opt => 
+                            ${selectOptions[header].map(opt => 
                                 `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`
                             ).join('')}
                         </select>`;
-                } else if (textAreas.includes(normalizedHeader)) {
+                } else if (textAreas.includes(header)) {
                     // Campo de texto largo
                     inputHtml = `
                         <textarea class="form-control" 
@@ -1693,7 +1622,7 @@
             inputs.forEach(input => {
                 input.addEventListener('change', function(e) {
                     const row = parseInt(this.dataset.row);
-                    let col = this.dataset.col;
+                    const col = parseInt(this.dataset.col);
                     const isDate = this.dataset.isDate === 'true';
                     let value = this.value;
 
@@ -1701,11 +1630,7 @@
                         value = formatDate(value);
                     }
 
-                    // Si es el textarea adicional de competencias técnicas
-                    if (col && col.endsWith('_texto')) {
-                        col = parseInt(col.split('_')[0]);
-                        sharedData.excelData[row][col + 1] = value; // Guarda en la columna siguiente
-                    } else if (row >= 0 && col >= 0) {
+                    if (row >= 0 && col >= 0) {
                         sharedData.excelData[row][col] = value;
                     }
                 });
@@ -2151,28 +2076,14 @@
                 if (registro.fecha_inicio) registro.fecha_inicio = formatearFecha(registro.fecha_inicio);
                 if (registro.fecha_terminacion) registro.fecha_terminacion = formatearFecha(registro.fecha_terminacion);
                 if (registro.fecha_firma_contrato) registro.fecha_firma_contrato = formatearFecha(registro.fecha_firma_contrato);
-                if (registro.fecha_expedicion_doc_identidad) registro.fecha_expedicion_doc_identidad = formatearFecha(registro.fecha_expedicion_doc_identidad);
                 if (registro.no_identificacion) {
-                    console.log('Registro a guardar:', registro);
+                    console.log('Registro a guardar:', registro); // <-- Agrega esto
                     await supabase
                         .from('empleados')
                         .upsert([registro], { onConflict: 'no_identificacion' });
                 }
             }
             alert('Datos cargados/actualizados en la base de datos.');
-        }
-
-        // Función para normalizar encabezados de columna
-        function normalizarColumna(nombre) {
-            return nombre
-                .replace(/\r?\n|\r/g, ' ') // Reemplaza saltos de línea por espacio
-                .replace(/\s+/g, ' ') // Reemplaza múltiples espacios por uno solo
-                .toLowerCase()
-                .replace(/ /g, '_')
-                .replace(/[áéíóúñ]/g, c => ({'á':'a','é':'e','í':'i','ó':'o','ú':'u','ñ':'n'}[c]))
-                .replace(/[^a-z0-9_]/g, '') // Elimina otros caracteres especiales
-                .replace(/_+/g, '_')        // Reemplaza múltiples guiones bajos por uno solo
-                .replace(/^_+|_+$/g, '');   // Elimina guiones bajos al inicio o final
         }
     </script>
 </body>
