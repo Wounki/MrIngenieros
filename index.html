@@ -439,6 +439,11 @@
                             throw new Error('El archivo Excel no contiene datos suficientes');
                         }
 
+                        // Normalizar encabezados
+                        if (newExcelData && newExcelData.length > 0) {
+                            newExcelData[0] = newExcelData[0].map(normalizarColumna);
+                        }
+
                         // Obtener datos existentes de Supabase
                         const { data: existingData, error } = await supabase
                             .from('excel_data')
@@ -923,10 +928,27 @@
                 if (header && rowData[index]) {
                     const infoItem = document.createElement('div');
                     infoItem.className = 'info-item';
-                    infoItem.innerHTML = `
-                        <label>${header}</label>
-                        <span>${rowData[index]}</span>
-                    `;
+                    
+                    // Si es el campo ESTADO, mostrar un select
+                    if (header === 'ESTADO') {
+                        const estadoOptions = ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO'];
+                        infoItem.innerHTML = `
+                            <label>${header}</label>
+                            <select class="estado-select" 
+                                    data-row="${rowIndex}" 
+                                    data-col="${index}"
+                                    onchange="updateEstado(this.value, ${rowIndex}, ${index})">
+                                ${estadoOptions.map(opt => 
+                                    `<option value="${opt}" ${rowData[index] === opt ? 'selected' : ''}>${opt}</option>`
+                                ).join('')}
+                            </select>
+                        `;
+                    } else {
+                        infoItem.innerHTML = `
+                            <label>${header}</label>
+                            <span>${rowData[index]}</span>
+                        `;
+                    }
                     infoGrid.appendChild(infoItem);
                 }
             });
@@ -960,16 +982,21 @@
         }
 
         // Función para actualizar el estado
-        function updateEstado(newEstado) {
-            const estadoSelect = document.getElementById('estado-select');
-            const rowIndex = parseInt(estadoSelect.dataset.rowIndex);
+        function updateEstado(newEstado, rowIndex, colIndex) {
             if (!sharedData.excelData || !sharedData.excelData[rowIndex]) return;
-
-            const headers = sharedData.excelData[0];
-            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
-            sharedData.excelData[rowIndex][estadoIndex] = newEstado;
+            
+            sharedData.excelData[rowIndex][colIndex] = newEstado;
             saveToSupabase();
-            displayEmpleadosList();
+            
+            // Actualizar la tarjeta del empleado en la lista
+            const empleadoCard = document.querySelector(`#empleados-list .empleado-card:nth-child(${rowIndex})`);
+            if (empleadoCard) {
+                empleadoCard.className = `empleado-card ${newEstado.toLowerCase().replace(' ', '-')}`;
+                const estadoSpan = empleadoCard.querySelector('.empleado-estado');
+                if (estadoSpan) {
+                    estadoSpan.textContent = `Estado: ${newEstado}`;
+                }
+            }
         }
 
         // Función para mostrar el diálogo de firma
@@ -2125,14 +2152,27 @@
                 if (registro.fecha_inicio) registro.fecha_inicio = formatearFecha(registro.fecha_inicio);
                 if (registro.fecha_terminacion) registro.fecha_terminacion = formatearFecha(registro.fecha_terminacion);
                 if (registro.fecha_firma_contrato) registro.fecha_firma_contrato = formatearFecha(registro.fecha_firma_contrato);
+                if (registro.fecha_expedicion_doc_identidad) registro.fecha_expedicion_doc_identidad = formatearFecha(registro.fecha_expedicion_doc_identidad);
                 if (registro.no_identificacion) {
-                    console.log('Registro a guardar:', registro); // <-- Agrega esto
+                    console.log('Registro a guardar:', registro);
                     await supabase
                         .from('empleados')
                         .upsert([registro], { onConflict: 'no_identificacion' });
                 }
             }
             alert('Datos cargados/actualizados en la base de datos.');
+        }
+
+        // Función para normalizar encabezados de columna
+        function normalizarColumna(nombre) {
+            return nombre
+                .replace(/[\r\n]+/g, ' ') // Reemplaza saltos de línea por espacio
+                .toLowerCase()
+                .replace(/ /g, '_')
+                .replace(/[áéíóúñ]/g, c => ({'á':'a','é':'e','í':'i','ó':'o','ú':'u','ñ':'n'}[c]))
+                .replace(/[^a-z0-9_]/g, '') // Elimina otros caracteres especiales
+                .replace(/_+/g, '_')        // Reemplaza múltiples guiones bajos por uno solo
+                .replace(/^_+|_+$/g, '');   // Elimina guiones bajos al inicio o final
         }
     </script>
 </body>
