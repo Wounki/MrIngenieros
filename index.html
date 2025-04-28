@@ -379,33 +379,17 @@
                 event.target.value = '';
                 return;
             }
-            const file = event.target.files[0];
-            if (file) {
-                try {
-                    // Subir la firma a Supabase Storage
-                    const firmaFileName = 'firma.png';
-                    const { error } = await supabase.storage.from('firmas').upload(`firmas/${firmaFileName}`, file, {
-                        cacheControl: '3600',
-                        upsert: true
-                    });
-                    if (error) throw error;
-                    // Obtener la URL pública
-                    const { data: publicUrlData } = supabase.storage.from('firmas').getPublicUrl(`firmas/${firmaFileName}`);
-                    if (publicUrlData && publicUrlData.publicUrl) {
-                        window.firmaUrl = publicUrlData.publicUrl;
-                        document.querySelectorAll('.signature-preview').forEach(preview => {
-                            preview.src = window.firmaUrl;
-                            preview.style.display = 'block';
-                        });
-                        document.querySelectorAll('.signature-placeholder').forEach(placeholder => {
-                            placeholder.style.display = 'none';
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error al subir la firma:', error);
-                    alert('Error al subir la firma: ' + error.message);
-                }
-            }
+            // Fijar la URL pública de la firma directamente
+            window.firmaUrl = "https://ixhsjtsilnfhuzgvkyve.supabase.co/storage/v1/object/public/firmas//firma.png";
+            document.querySelectorAll('.signature-preview').forEach(preview => {
+                preview.src = window.firmaUrl;
+                preview.style.display = 'block';
+            });
+            document.querySelectorAll('.signature-placeholder').forEach(placeholder => {
+                placeholder.style.display = 'none';
+            });
+            // Opcional: puedes mostrar un mensaje de éxito
+            alert('Firma cargada correctamente (usando la URL fija).');
         }
 
         // Función para cargar Excel
@@ -1749,22 +1733,17 @@
                     role: users[username].role
                 };
                 
-                // Cargar la firma desde Supabase Storage si existe
+                // Fijar la URL pública de la firma para el confirmador
                 if (currentUser.role === 'confirmador') {
-                    const firmaFileName = 'firma.png';
-                    const { data: publicUrlData } = supabase.storage.from('firmas').getPublicUrl(`firmas/${firmaFileName}`);
-                    if (publicUrlData && publicUrlData.publicUrl) {
-                        window.firmaUrl = publicUrlData.publicUrl;
-                        document.querySelectorAll('.signature-preview').forEach(preview => {
-                            preview.src = window.firmaUrl;
-                            preview.style.display = 'block';
-                        });
-                        document.querySelectorAll('.signature-placeholder').forEach(placeholder => {
-                            placeholder.style.display = 'none';
-                        });
-                    } else {
-                        window.firmaUrl = '';
-                    }
+                    window.firmaUrl = "https://ixhsjtsilnfhuzgvkyve.supabase.co/storage/v1/object/public/firmas//firma.png";
+                    // Mostrar la firma en la interfaz
+                    document.querySelectorAll('.signature-preview').forEach(preview => {
+                        preview.src = window.firmaUrl;
+                        preview.style.display = 'block';
+                    });
+                    document.querySelectorAll('.signature-placeholder').forEach(placeholder => {
+                        placeholder.style.display = 'none';
+                    });
                 }
 
                 // Ocultar formulario de login
