@@ -2121,9 +2121,21 @@
                 'hv_digital_completa_segun_sig_gr_f_32': 'hv_digital_completa_segun_sig_gr_f_32'
             };
             const headers = excelData[0];
+            // LOG: Encabezados leídos y normalizados
+            console.log('Encabezados leídos:', headers);
+            headers.forEach((h, idx) => {
+                console.log(`Header[${idx}]:`, h, '->', normalizarTexto(h));
+            });
+            // LOG: Índices de columnas clave
+            const nombreIndex = headers.findIndex(h => normalizarTexto(h) === 'NOMBRES Y APELLIDOS');
+            const documentoIndex = headers.findIndex(h => normalizarTexto(h) === 'NO DE IDENTIFICACION');
+            console.log('Índice de NOMBRES Y APELLIDOS:', nombreIndex);
+            console.log('Índice de NO DE IDENTIFICACION:', documentoIndex);
             for (let i = 1; i < excelData.length; i++) {
                 const fila = excelData[i];
                 if (!fila || !fila.length) continue;
+                // LOG: Fila a procesar
+                console.log('Fila a procesar:', fila);
                 const registro = {};
                 headers.forEach((col, idx) => {
                     let key = col
@@ -2145,8 +2157,9 @@
                 if (registro.fecha_terminacion) registro.fecha_terminacion = formatearFecha(registro.fecha_terminacion);
                 if (registro.fecha_firma_contrato) registro.fecha_firma_contrato = formatearFecha(registro.fecha_firma_contrato);
                 if (registro.fecha_expedicion_doc_identidad) registro.fecha_expedicion_doc_identidad = formatearFecha(registro.fecha_expedicion_doc_identidad);
+                // LOG: Registro a guardar
+                console.log('Registro a guardar:', registro);
                 if (registro.no_de_identificacion) {
-                    console.log('Registro a guardar:', registro);
                     await supabase
                         .from('excel_data')
                         .upsert([registro], { onConflict: 'no_de_identificacion' });
