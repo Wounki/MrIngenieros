@@ -439,23 +439,10 @@
                             throw new Error('El archivo Excel no contiene datos suficientes');
                         }
 
-                        // Obtener datos existentes de Supabase
-                        const { data: existingData, error } = await supabase
-                            .from('excel_data')
-                            .select('*')
-                            .order('upload_date', { ascending: false });
-
-                        if (error) {
-                            throw new Error('Error al obtener datos existentes: ' + error.message);
-                        }
-
-                        // Compilar datos
-                        const compiledData = await compileExcelData(newExcelData, existingData);
-
                         // Guardar datos en el objeto compartido
-                        sharedData.excelData = compiledData;
+                        sharedData.excelData = newExcelData;
                         sharedData.filteredRows = Array.from(
-                            { length: compiledData.length - 1 }, 
+                            { length: newExcelData.length - 1 }, 
                             (_, i) => i + 1
                         );
                         sharedData.currentRowIndex = 1;
