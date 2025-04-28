@@ -871,12 +871,13 @@
         
         // Función para mostrar un PDF
         function displayPDF(filename) {
-            const pdfData = sharedData.pdfs[filename];
-            if (!pdfData) {
+            console.log('displayPDF llamado con:', filename);
+            if (!sharedData.pdfs[filename]) {
                 alert('Error: PDF no encontrado.');
                 return;
             }
             currentPDF = filename;
+            console.log('currentPDF actualizado a:', currentPDF);
 
             document.getElementById('pdf-viewer').style.display = 'block';
             document.getElementById('current-pdf-name').textContent = filename;
@@ -884,7 +885,7 @@
             const container = document.getElementById('pdf-container');
             container.innerHTML = '';
 
-            const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
+            const pdfBlob = new Blob([sharedData.pdfs[filename]], { type: 'application/pdf' });
             const pdfUrl = URL.createObjectURL(pdfBlob);
 
             const iframe = document.createElement('iframe');
@@ -1195,6 +1196,9 @@
         }
 
         async function firmarPDF() {
+            console.log('firmarPDF: currentPDF:', currentPDF);
+            console.log('firmarPDF: sharedData.pdfs keys:', Object.keys(sharedData.pdfs));
+            console.log('firmarPDF: window.firmaUrl:', window.firmaUrl);
             if (!currentUser || currentUser.role !== 'confirmador') {
                 alert('Solo el rol de Confirmador puede firmar documentos.');
                 return;
