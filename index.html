@@ -2166,7 +2166,8 @@
         // Función para normalizar encabezados de columna
         function normalizarColumna(nombre) {
             return nombre
-                .replace(/[\r\n]+/g, ' ') // Reemplaza saltos de línea por espacio
+                .replace(/\r?\n|\r/g, ' ') // Reemplaza saltos de línea por espacio
+                .replace(/\s+/g, ' ') // Reemplaza múltiples espacios por uno solo
                 .toLowerCase()
                 .replace(/ /g, '_')
                 .replace(/[áéíóúñ]/g, c => ({'á':'a','é':'e','í':'i','ó':'o','ú':'u','ñ':'n'}[c]))
