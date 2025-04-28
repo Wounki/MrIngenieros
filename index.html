@@ -2133,7 +2133,8 @@
             console.log('Índice de NO DE IDENTIFICACION:', documentoIndex);
             for (let i = 1; i < excelData.length; i++) {
                 const fila = excelData[i];
-                if (!fila || !fila.length) continue;
+                // Filtrar filas vacías o con solo celdas vacías
+                if (!fila || fila.every(cell => !cell || cell.toString().trim() === '')) continue;
                 // LOG: Fila a procesar
                 console.log('Fila a procesar:', fila);
                 const registro = {};
@@ -2159,7 +2160,8 @@
                 if (registro.fecha_expedicion_doc_identidad) registro.fecha_expedicion_doc_identidad = formatearFecha(registro.fecha_expedicion_doc_identidad);
                 // LOG: Registro a guardar
                 console.log('Registro a guardar:', registro);
-                if (registro.no_de_identificacion) {
+                // Solo guardar si tiene nombre y documento
+                if (registro.nombres_y_apellidos && registro.no_de_identificacion) {
                     await supabase
                         .from('excel_data')
                         .upsert([registro], { onConflict: 'no_de_identificacion' });
