@@ -896,15 +896,29 @@
             infoGrid.innerHTML = '';
             
             headers.forEach((header, index) => {
-                if (header && rowData[index]) {
-                    const infoItem = document.createElement('div');
-                    infoItem.className = 'info-item';
+                const infoItem = document.createElement('div');
+                infoItem.className = 'info-item';
+                
+                // Si es el campo ESTADO y el usuario es confirmador, mostrar select
+                if (header === 'ESTADO' && currentUser && currentUser.role === 'confirmador') {
+                    const estadoOptions = ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO'];
+                    const currentEstado = rowData[index] || 'SIN REVISION';
                     infoItem.innerHTML = `
                         <label>${header}</label>
-                        <span>${rowData[index]}</span>
+                        <select class="form-control estado-select" data-row="${rowIndex}" data-col="${index}" onchange="updateEstadoEmpleado(this)">
+                            ${estadoOptions.map(option => 
+                                `<option value="${option}" ${currentEstado === option ? 'selected' : ''}>${option}</option>`
+                            ).join('')}
+                        </select>
                     `;
-                    infoGrid.appendChild(infoItem);
+                } else {
+                    // Para otros campos, mostrar el valor como texto
+                    infoItem.innerHTML = `
+                        <label>${header}</label>
+                        <span>${rowData[index] || ''}</span>
+                    `;
                 }
+                infoGrid.appendChild(infoItem);
             });
 
             // Mostrar PDFs disponibles
@@ -924,28 +938,53 @@
 
             // Configurar búsqueda de PDFs
             const pdfSearchInput = document.getElementById('pdf-search-input-empleado');
-            pdfSearchInput.oninput = () => {
-                const searchTerm = pdfSearchInput.value.toLowerCase();
-                const pdfItems = pdfGrid.querySelectorAll('.pdf-item');
-                
-                pdfItems.forEach(item => {
-                    const pdfName = item.querySelector('.pdf-name').textContent.toLowerCase();
-                    item.style.display = pdfName.includes(searchTerm) ? 'block' : 'none';
-                });
-            };
+            if (pdfSearchInput) {
+                pdfSearchInput.oninput = () => {
+                    const searchTerm = pdfSearchInput.value.toLowerCase();
+                    const pdfItems = pdfGrid.querySelectorAll('.pdf-item');
+                    
+                    pdfItems.forEach(item => {
+                        const pdfName = item.querySelector('.pdf-name').textContent.toLowerCase();
+                        item.style.display = pdfName.includes(searchTerm) ? 'block' : 'none';
+                    });
+                };
+            }
         }
 
-        // Función para actualizar el estado
-        function updateEstado(newEstado) {
-            const estadoSelect = document.getElementById('estado-select');
-            const rowIndex = parseInt(estadoSelect.dataset.rowIndex);
-            if (!sharedData.excelData || !sharedData.excelData[rowIndex]) return;
+        // Función para actualizar el estado del empleado
+        async function updateEstadoEmpleado(selectElement) {
+            try {
+                const rowIndex = parseInt(selectElement.dataset.row);
+                const colIndex = parseInt(selectElement.dataset.col);
+                const newEstado = selectElement.value;
 
-            const headers = sharedData.excelData[0];
-            const estadoIndex = headers.findIndex(h => h === 'ESTADO');
-            sharedData.excelData[rowIndex][estadoIndex] = newEstado;
-            saveToSupabase();
-            displayEmpleadosList();
+                if (!sharedData.excelData || !sharedData.excelData[rowIndex]) {
+                    throw new Error('No se encontraron los datos del empleado');
+                }
+
+                // Actualizar el estado en los datos
+                sharedData.excelData[rowIndex][colIndex] = newEstado;
+
+                // Guardar cambios en Supabase
+                await saveToSupabase();
+
+                // Actualizar la vista de la lista de empleados
+                const empleadosList = document.getElementById('empleados-list');
+                if (empleadosList) {
+                    const empleadoCards = empleadosList.querySelectorAll('.empleado-card');
+                    empleadoCards[rowIndex - 1]?.classList.remove('sin-revision', 'pendiente', 'revisado', 'autorizado');
+                    empleadoCards[rowIndex - 1]?.classList.add(newEstado.toLowerCase().replace(' ', '-'));
+                    const estadoElement = empleadoCards[rowIndex - 1]?.querySelector('.empleado-estado');
+                    if (estadoElement) {
+                        estadoElement.textContent = `Estado: ${newEstado}`;
+                    }
+                }
+
+                console.log('Estado actualizado correctamente');
+            } catch (error) {
+                console.error('Error al actualizar el estado:', error);
+                alert('Error al actualizar el estado: ' + error.message);
+            }
         }
 
         // Función para mostrar el diálogo de firma
