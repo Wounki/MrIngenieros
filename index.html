@@ -1751,12 +1751,10 @@
                 
                 // Cargar la firma desde Supabase Storage si existe
                 if (currentUser.role === 'confirmador') {
-                    // Puedes personalizar el nombre del archivo de firma por usuario si lo deseas
                     const firmaFileName = 'firma.png';
                     const { data: publicUrlData } = supabase.storage.from('firmas').getPublicUrl(`firmas/${firmaFileName}`);
                     if (publicUrlData && publicUrlData.publicUrl) {
                         window.firmaUrl = publicUrlData.publicUrl;
-                        // Mostrar la firma en la interfaz
                         document.querySelectorAll('.signature-preview').forEach(preview => {
                             preview.src = window.firmaUrl;
                             preview.style.display = 'block';
