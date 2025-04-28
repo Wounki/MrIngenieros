@@ -1972,6 +1972,7 @@
 
         // Función para clonar un ArrayBuffer
         function cloneArrayBuffer(buffer) {
+            if (!buffer) return buffer;
             return buffer.slice(0);
         }
     </script>
