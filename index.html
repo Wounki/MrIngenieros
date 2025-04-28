@@ -702,24 +702,21 @@
                 }
                 return;
             }
-            
             const rowViewer = document.getElementById('confirmador-row-content');
             if (!rowViewer) return;
-            
             const headers = sharedData.excelData[0];
             const rowIndex = sharedData.filteredRows[sharedData.currentRowIndex - 1];
             const rowData = sharedData.excelData[rowIndex] || [];
-            
             rowViewer.innerHTML = '';
-            
+
+            // Opciones para el campo ESTADO
+            const estadoOptions = ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO'];
+
             headers.forEach((header, index) => {
                 const div = document.createElement('div');
                 div.className = 'form-group';
-                
-                if (header === 'ESTADO' || index === 45) {
-                    const estadoOptions = ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO'];
+                if (normalizeHeader(header) === 'ESTADO') {
                     const currentValue = rowData[index] || 'SIN REVISION';
-                    
                     div.innerHTML = `
                         <label>${header}</label>
                         <select class="estado-select" data-row="${rowIndex}" data-col="${index}">
@@ -736,7 +733,21 @@
                 }
                 rowViewer.appendChild(div);
             });
-            
+
+            // Event listener para el select de ESTADO
+            const estadoSelect = rowViewer.querySelector('.estado-select');
+            if (estadoSelect) {
+                estadoSelect.addEventListener('change', function(e) {
+                    const row = parseInt(this.dataset.row);
+                    const col = parseInt(this.dataset.col);
+                    const value = this.value;
+                    if (row >= 0 && col >= 0) {
+                        sharedData.excelData[row][col] = value;
+                        saveToSupabase();
+                    }
+                });
+            }
+
             // Actualizar navegación
             document.getElementById('confirmador-current-row-index').textContent = sharedData.currentRowIndex;
             document.getElementById('confirmador-total-rows').textContent = sharedData.filteredRows.length;
@@ -1492,6 +1503,11 @@
             });
         }
 
+        // Función para normalizar encabezados
+        function normalizeHeader(header) {
+            return header.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+        }
+
         // Función para mostrar una fila del Excel
         function displayExcelRow() {
             if (!sharedData.excelData || sharedData.excelData.length <= 1) {
@@ -1508,6 +1524,7 @@
 
             // Definir las opciones para los campos de selección
             const selectOptions = {
+                'TIPO IDENTIFICACIÓN': ['CC', 'PT', 'CE'],
                 'CLAUSURA TERCERA': ['S', 'P'],
                 'PARÁGRAFO DIRECCIÓN MANEJO Y CONFIANZA': ['S', 'A', 'P'],
                 'NIVEL DE ESTUDIO': ['SIN ESCOLARIDAD', 'PRIMARIA', 'BACHILLER', 'TECNICO', 'TÉCNOLOGO', 'PROFESIONAL', 'MAESTRÍA', 'DOCTORADO', 'P'],
@@ -1522,11 +1539,24 @@
                 'APROBACIÓN SSTA EMO': ['S', 'A', 'P'],
                 'SAGRILAFT': ['S', 'P'],
                 'ARL': ['S', 'P'],
-                'EPS': ['S', 'P'],
-                'AFP': ['S', 'P'],
                 'CESANTIAS': ['S', 'P'],
                 'CUENTA BANCARIA': ['S', 'P'],
-                'ESTADO': ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO']
+                'SEXO': ['M', 'F'],
+                'ESTADO CIVIL': ['S', 'U', 'C', 'D'],
+                'CONFIRMACIÓN CONTRATACIÓN GERENCIA OPERACIONES': ['S', 'P'],
+                'ESTADO': ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO'],
+                'SIG-GR-F-06 INDUCCIÓN': ['S', 'P'],
+                'SIG-GR-F-31 FUNCIONES': ['S', 'P'],
+                'SIG-GR-F-27 INFORMACIÓN TRABAJADOR': ['S', 'P'],
+                'SIG-GR-F-04 DOTACIÓN Y EPPS': ['S', 'P'],
+                'FORMATO MANEJO DE IMAGEN': ['S', 'P'],
+                'AUTORIZACION MEDIOS ELECTRÓNICOS': ['S', 'P'],
+                'SIG-GR-F-01 ENTREVISTA': ['S', 'P', 'A'],
+                'SIG-GR-F-03  ASIGNACIÓN ROL': ['S', 'P', 'A'],
+                'SIG-GR-F-37 HV CONDUCTORES': ['S', 'P', 'A'],
+                'SIG-GR-F-61 PERFIL DEL CARGO, FUNCIONES Y RESPONSABILIDADES': ['S', 'P'],
+                'HV DIGITAL COMPLETA SEGÚN SIG-GR-F-32 ': ['S', 'P'],
+                
             };
 
             // Campos de texto libre
@@ -1537,14 +1567,27 @@
                 'EPS',
                 'AFP',
                 'CESANTIAS',
-                'COMPETENCIAS TÉCNICAS CUMPLE/NO CUMPLE/NO APLICA'
+                'BANCO',
+                'FECHA DE EXPEDICIÓN DOC. IDENTIDAD',
+                'COMPETENCIAS TÉCNICAS'
             ];
             
+            // Normaliza las claves de selectOptions
+            const selectOptionsNormalized = {};
+            Object.keys(selectOptions).forEach(key => {
+                selectOptionsNormalized[normalizeHeader(key)] = selectOptions[key];
+            });
+            
             headers.forEach((header, index) => {
+                const normalizedHeader = normalizeHeader(header);
+                // Si la columna anterior es 'COMPETENCIAS TÉCNICAS CUMPLE/NO CUMPLE/NO APLICA', saltar esta columna (es la del textarea)
+                if (index > 0 && normalizeHeader(headers[index - 1]) === 'COMPETENCIAS TÉCNICAS CUMPLE/NO CUMPLE/NO APLICA') {
+                    return;
+                }
                 const div = document.createElement('div');
                 div.className = 'form-group';
                 
-                const isDate = header.toLowerCase().includes('fecha');
+                const isDate = normalizedHeader.toLowerCase().includes('fecha');
                 let value = rowData[index] || '';
                 
                 if (isDate && value) {
@@ -1553,18 +1596,36 @@
 
                 let inputHtml = '';
                 
-                if (selectOptions[header]) {
-                    // Campo de selección
+                if (normalizedHeader === 'COMPETENCIAS TÉCNICAS CUMPLE/NO CUMPLE/NO APLICA') {
+                    // Mostrar select y textarea juntos
+                    const obsCompIndex = headers.findIndex(h => normalizeHeader(h) === 'OBSERVACIÓN COMPETENCIAS TÉCNICAS');
                     inputHtml = `
                         <select class="form-control" 
                                 data-row="${rowIndex}" 
                                 data-col="${index}">
                             <option value="">Seleccione...</option>
-                            ${selectOptions[header].map(opt => 
+                            ${(selectOptionsNormalized[normalizedHeader] || []).map(opt => 
+                                `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`
+                            ).join('')}
+                        </select>
+                        <textarea class="form-control" 
+                                 data-row="${rowIndex}" 
+                                 data-col="${obsCompIndex}"
+                                 rows="2"
+                                 placeholder="Observaciones adicionales...">${rowData[obsCompIndex] || ''}</textarea>
+                    `;
+                } else if (selectOptionsNormalized[normalizedHeader]) {
+                    // Campo de selección normal
+                    inputHtml = `
+                        <select class="form-control" 
+                                data-row="${rowIndex}" 
+                                data-col="${index}">
+                            <option value="">Seleccione...</option>
+                            ${selectOptionsNormalized[normalizedHeader].map(opt => 
                                 `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt}</option>`
                             ).join('')}
                         </select>`;
-                } else if (textAreas.includes(header)) {
+                } else if (textAreas.includes(normalizedHeader)) {
                     // Campo de texto largo
                     inputHtml = `
                         <textarea class="form-control" 
@@ -1606,7 +1667,7 @@
             inputs.forEach(input => {
                 input.addEventListener('change', function(e) {
                     const row = parseInt(this.dataset.row);
-                    const col = parseInt(this.dataset.col);
+                    let col = this.dataset.col;
                     const isDate = this.dataset.isDate === 'true';
                     let value = this.value;
 
@@ -1614,7 +1675,11 @@
                         value = formatDate(value);
                     }
 
-                    if (row >= 0 && col >= 0) {
+                    // Si es el textarea adicional de competencias técnicas
+                    if (col && col.endsWith('_texto')) {
+                        col = parseInt(col.split('_')[0]);
+                        sharedData.excelData[row][col + 1] = value; // Guarda en la columna siguiente
+                    } else if (row >= 0 && col >= 0) {
                         sharedData.excelData[row][col] = value;
                     }
                 });
