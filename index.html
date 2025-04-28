@@ -468,6 +468,8 @@
                         // Guardar en Supabase
                         try {
                             await saveToSupabase();
+                            // Nueva integración: cargar también en la tabla empleados
+                            await cargarExcelASupabase(newExcelData);
                             console.log('Excel guardado en Supabase exitosamente');
                         } catch (supabaseError) {
                             console.error('Error al guardar en Supabase:', supabaseError);
@@ -1658,32 +1660,36 @@
         }
 
         // Función para descargar el Excel actualizado
-        function downloadExcel() {
-            if (!workbook || !sharedData.excelData) {
-                alert('No hay datos para descargar');
-                return;
-            }
-            
+        async function downloadExcel() {
             try {
-                // Actualizar la hoja de trabajo con los datos modificados
-                const ws = XLSX.utils.aoa_to_sheet(sharedData.excelData);
-                workbook.Sheets[workbook.SheetNames[0]] = ws;
-                
-                // Generar el archivo
-                const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-                
-                // Crear Blob y descargar
+                // Obtener los datos de la tabla empleados
+                const { data, error } = await supabase.from('empleados').select('*');
+                if (error) {
+                    alert('Error al obtener los empleados: ' + error.message);
+                    return;
+                }
+                if (!data || data.length === 0) {
+                    alert('No hay empleados almacenados.');
+                    return;
+                }
+                // Convertir a formato de hoja de cálculo
+                const headers = Object.keys(data[0]);
+                const rows = data.map(obj => headers.map(h => obj[h]));
+                const aoa = [headers, ...rows];
+                const ws = XLSX.utils.aoa_to_sheet(aoa);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Empleados');
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
                 const blob = new Blob([wbout], { type: 'application/octet-stream' });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'datos_actualizados.xlsx';
+                a.download = 'empleados_supabase.xlsx';
                 a.click();
-                
                 window.URL.revokeObjectURL(url);
             } catch (error) {
-                console.error('Error al descargar el Excel:', error);
-                alert('Error al descargar el archivo Excel');
+                console.error('Error al descargar el Excel desde Supabase:', error);
+                alert('Error al descargar el archivo Excel desde Supabase');
             }
         }
 
@@ -2009,6 +2015,56 @@
         function cloneArrayBuffer(buffer) {
             if (!buffer) return buffer;
             return buffer.slice(0);
+        }
+
+        // Función para convertir fechas a formato YYYY-MM-DD
+        function formatearFecha(valor) {
+            if (!valor) return null;
+            // Si ya es formato YYYY-MM-DD
+            if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
+            // Si es formato DD/MM/YYYY
+            if (/^\d{2}\/\d{2}\/\d{4}$/.test(valor)) {
+                const [d, m, y] = valor.split('/');
+                return `${y}-${m}-${d}`;
+            }
+            // Si es un número de Excel (fecha serial)
+            if (!isNaN(valor)) {
+                const date = new Date((valor - 25569) * 86400 * 1000);
+                return date.toISOString().split('T')[0];
+            }
+            return valor;
+        }
+
+        // Función para cargar y actualizar datos del Excel en la tabla empleados
+        async function cargarExcelASupabase(excelData) {
+            const headers = excelData[0];
+            for (let i = 1; i < excelData.length; i++) {
+                const fila = excelData[i];
+                if (!fila || !fila.length) continue;
+                const registro = {};
+                headers.forEach((col, idx) => {
+                    let key = col
+                        .toLowerCase()
+                        .replace(/[\s#\/,]+/g, '_')
+                        .replace(/[()]/g, '')
+                        .replace(/_+/g, '_')
+                        .replace(/_$/g, '')
+                        .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i').replace(/ó/g, 'o').replace(/ú/g, 'u')
+                        .replace(/ñ/g, 'n');
+                    registro[key] = fila[idx] || null;
+                });
+                // Fechas
+                if (registro.fecha_nacimiento) registro.fecha_nacimiento = formatearFecha(registro.fecha_nacimiento);
+                if (registro.fecha_inicio) registro.fecha_inicio = formatearFecha(registro.fecha_inicio);
+                if (registro.fecha_terminacion) registro.fecha_terminacion = formatearFecha(registro.fecha_terminacion);
+                if (registro.fecha_firma_contrato) registro.fecha_firma_contrato = formatearFecha(registro.fecha_firma_contrato);
+                if (registro.no_identificacion) {
+                    await supabase
+                        .from('empleados')
+                        .upsert([registro], { onConflict: 'no_identificacion' });
+                }
+            }
+            alert('Datos cargados/actualizados en la base de datos.');
         }
     </script>
 </body>
