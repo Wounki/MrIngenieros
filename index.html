@@ -383,7 +383,7 @@
             if (file) {
                 try {
                     // Subir la firma a Supabase Storage
-                    const firmaFileName = 'firma_confirmador.png';
+                    const firmaFileName = 'firma.png';
                     const { error } = await supabase.storage.from('firmas').upload(`firmas/${firmaFileName}`, file, {
                         cacheControl: '3600',
                         upsert: true
@@ -1748,7 +1748,7 @@
                 // Cargar la firma desde Supabase Storage si existe
                 if (currentUser.role === 'confirmador') {
                     // Puedes personalizar el nombre del archivo de firma por usuario si lo deseas
-                    const firmaFileName = 'firma_confirmador.png';
+                    const firmaFileName = 'firma.png';
                     const { data: publicUrlData } = supabase.storage.from('firmas').getPublicUrl(`firmas/${firmaFileName}`);
                     if (publicUrlData && publicUrlData.publicUrl) {
                         window.firmaUrl = publicUrlData.publicUrl;
