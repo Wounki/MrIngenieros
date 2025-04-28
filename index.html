@@ -2164,6 +2164,77 @@
                 console.log('Claves del registro:', Object.keys(registro));
                 // Solo guardar si tiene nombre y documento
                 if (registro.nombres_y_apellidos && registro.no_de_identificacion) {
+                    // Filtrar el registro para que solo tenga las claves de la tabla
+                    const columnasTabla = [
+                      "item",
+                      "tipo_contrato",
+                      "nombres_y_apellidos",
+                      "tipo_documento_identificacion",
+                      "no_de_identificacion",
+                      "lugar_expedicion_documento_identificacion",
+                      "fecha_de_nacimiento",
+                      "lugar_de_nacimiento",
+                      "nacionalidad",
+                      "direccion_de_residencia",
+                      "municipio_departamento_residencia",
+                      "telefono_celular",
+                      "correo_electronico",
+                      "cargo",
+                      "categoria_tabla",
+                      "proyecto_y_o_orden_de_servicio",
+                      "obra_o_labor_contratada",
+                      "lugar_de_ejecucion",
+                      "fecha_de_inicio",
+                      "periodo_de_prueba",
+                      "fecha_terminacion",
+                      "salario",
+                      "salario_letras",
+                      "clausura_tercera",
+                      "horario_laboral",
+                      "paragrafo_direccion_manejo_y_confianza",
+                      "fecha_firma_contrato",
+                      "nivel_de_estudio",
+                      "titulo",
+                      "tarjeta_licencia_matricula_copnia",
+                      "competencias_tecnicas_cumple_no_cumple_no_aplica",
+                      "cursos",
+                      "licencia_de_conduccion",
+                      "experiencia_laboral",
+                      "sig_gr_f_42_solicitud_de_personal",
+                      "certificado_de_residencia",
+                      "postulacion_ape",
+                      "aprobacion_ssta_cargos",
+                      "aprobacion_ssta_emo",
+                      "sagrilaft",
+                      "arl",
+                      "eps",
+                      "afp",
+                      "cesantias",
+                      "cuenta_bancaria",
+                      "banco",
+                      "fecha_expedicion_doc_identidad",
+                      "sexo",
+                      "estado_civil",
+                      "confirmacion_contratacion_gerencia_operaciones",
+                      "observaciones",
+                      "estado",
+                      "sig_gr_f_06_induccion",
+                      "sig_gr_f_31_funciones",
+                      "sig_gr_f_27_informacion_trabajador",
+                      "sig_gr_f_04_dotacion_y_epps",
+                      "formato_manejo_de_imagen",
+                      "autorizacion_medios_electronicos",
+                      "sig_gr_f_01_entrevista",
+                      "sig_gr_f_03_asignacion_rol",
+                      "sig_gr_f_37_hv_conductores",
+                      "sig_gr_f_61_perfil_del_cargo_funciones_y_responsabilidades",
+                      "hv_digital_completa_segun_sig_gr_f_32"
+                    ];
+                    Object.keys(registro).forEach(key => {
+                      if (!columnasTabla.includes(key)) {
+                        delete registro[key];
+                      }
+                    });
                     // Prueba: si es la primera fila válida, intenta guardar un registro mínimo
                     if (i === 1) {
                         const registroPrueba = {
