@@ -1245,13 +1245,18 @@
                 // Copiar todas las páginas del PDF original
                 for (let i = 1; i <= numPages; i++) {
                     const page = await pdfDoc.getPage(i);
-                    const viewport = page.getViewport({ scale: 1.0 });
+                    // Aumentar la escala para mejor calidad
+                    const viewport = page.getViewport({ scale: 2.0 });
 
                     // Crear un canvas para renderizar la página
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
+                    
+                    // Ajustar el tamaño del canvas para mantener la calidad
+                    const dpr = window.devicePixelRatio || 1;
+                    canvas.width = viewport.width * dpr;
+                    canvas.height = viewport.height * dpr;
+                    context.scale(dpr, dpr);
 
                     // Renderizar la página en el canvas
                     await page.render({
@@ -1259,14 +1264,14 @@
                         viewport: viewport
                     }).promise;
 
-                    // Convertir el canvas a imagen y añadirlo al PDF
-                    const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                    // Convertir el canvas a imagen usando PNG para mejor calidad
+                    const imgData = canvas.toDataURL('image/png', 1.0);
                     if (i > 1) {
                         doc.addPage();
                     }
                     doc.addImage(
                         imgData,
-                        'JPEG',
+                        'PNG',
                         0,
                         0,
                         doc.internal.pageSize.width,
@@ -1296,8 +1301,8 @@
                         doc.addImage(
                             img,
                             'PNG',
-                            doc.internal.pageSize.width - 100, // Posición X
-                            doc.internal.pageSize.height - 60, // Posición Y
+                            doc.internal.pageSize.width - 160, // Posición X
+                            doc.internal.pageSize.height - 265, // Posición Y
                             80, // Ancho
                             40 // Alto
                         );
@@ -1427,13 +1432,18 @@
                 // Copiar todas las páginas del PDF original
                 for (let i = 1; i <= numPages; i++) {
                     const page = await pdfDoc.getPage(i);
-                    const viewport = page.getViewport({ scale: 1.0 });
+                    // Aumentar la escala para mejor calidad
+                    const viewport = page.getViewport({ scale: 2.0 });
 
                     // Crear un canvas para renderizar la página
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
+                    
+                    // Ajustar el tamaño del canvas para mantener la calidad
+                    const dpr = window.devicePixelRatio || 1;
+                    canvas.width = viewport.width * dpr;
+                    canvas.height = viewport.height * dpr;
+                    context.scale(dpr, dpr);
 
                     // Renderizar la página en el canvas
                     await page.render({
@@ -1441,14 +1451,14 @@
                         viewport: viewport
                     }).promise;
 
-                    // Convertir el canvas a imagen y añadirlo al PDF
-                    const imgData = canvas.toDataURL('image/jpeg', 1.0);
+                    // Convertir el canvas a imagen usando PNG para mejor calidad
+                    const imgData = canvas.toDataURL('image/png', 1.0);
                     if (i > 1) {
                         doc.addPage();
                     }
                     doc.addImage(
                         imgData,
-                        'JPEG',
+                        'PNG',
                         0,
                         0,
                         doc.internal.pageSize.width,
