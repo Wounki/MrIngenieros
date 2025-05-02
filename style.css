@@ -326,32 +326,40 @@ th {
 }
 
 .estado-select {
-    background-color: #fff;
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: white;
     font-size: 14px;
-}
-
-.estado-select option {
-    padding: 10px;
+    color: #333;
+    cursor: pointer;
+    margin-bottom: 10px;
 }
 
 .estado-select:focus {
     outline: none;
     border-color: #4CAF50;
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
 }
 
-.estado-select[value="SIN REVISION"] {
+.estado-select option {
+    padding: 8px;
+}
+
+.estado-select option[value="SIN REVISION"] {
     background-color: #ffebee;
 }
 
-.estado-select[value="PENDIENTE"] {
+.estado-select option[value="PENDIENTE"] {
     background-color: #fff3e0;
 }
 
-.estado-select[value="REVISADO"] {
+.estado-select option[value="REVISADO"] {
     background-color: #e8f5e9;
 }
 
-.estado-select[value="AUTORIZADO"] {
+.estado-select option[value="AUTORIZADO"] {
     background-color: #e3f2fd;
 }
 
@@ -566,19 +574,16 @@ th {
     background-color: #e3f2fd;
 }
 
-.firma-btn {
-    margin-top: 10px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    width: 100%;
+.firma-btn-group {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-bottom: 20px;
 }
 
-.firma-btn:hover {
-    background-color: #45a049;
+.firma-btn {
+    width: auto;
+    min-width: 180px;
 }
 
 .confirmador-content {
@@ -685,7 +690,7 @@ th {
 }
 
 .search-container {
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .search-input {

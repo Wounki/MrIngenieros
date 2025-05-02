@@ -37,7 +37,7 @@
             <div class="header">
                 <h1>Panel de Control - Revisor RH</h1>
                 <div>
-                    <span class="user-info">Hola Alejandra</span>
+                    <span class="user-info">Bienvenido, Analista de Talento Humano</span>
                     <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
                 </div>
             </div>
@@ -170,7 +170,7 @@
             <div class="header">
                 <h1>Panel de Control - Directora RH</h1>
                 <div>
-                    <span class="user-info">Hola Andrea Amado</span>
+                    <span class="user-info">Bienvenido, Director(a) de Talento Humanos</span>
                     <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
                 </div>
             </div>
@@ -180,11 +180,15 @@
                 <div class="empleados-section">
                     <h2>Autorización de Documento</h2>
                     <div class="search-container">
-                        <input type="text" 
-                               id="confirmador-search-input-empleados" 
-                               placeholder="Buscar persona por nombre o identificación..." 
-                               class="search-input" 
-                               oninput="searchConfirmadorRowsEmpleados()">
+                        <select id="confirmador-search-input-empleados" 
+                               class="search-input estado-select" 
+                               onchange="searchConfirmadorRowsEmpleados()">
+                            <option value="">Todos los estados</option>
+                            <option value="SIN REVISION">Sin Revisión</option>
+                            <option value="PENDIENTE">Pendiente</option>
+                            <option value="REVISADO">Revisado</option>
+                            <option value="AUTORIZADO">Autorizado</option>
+                        </select>
                     </div>
                     <!-- Mensaje cuando no hay documentos -->
                     <div id="no-docs-message" style="display: none; padding: 15px; background: #fff3e0; border-radius: 4px; margin: 10px 0;">
@@ -228,10 +232,10 @@
                             </div>
                             <img id="signature-preview-empleado" class="signature-preview" alt="Vista previa de la firma">
                         </div>
-                        <div class="signature-buttons">
+                        <div class="signature-buttons firma-btn-group">
                             <button onclick="clearSignature()">Limpiar</button>
-                            <button onclick="firmarPDF()">Firmar Documento</button>
-                            <button onclick="firmarTodosPDFs()">Firmar Todos los Documentos</button>
+                            <button onclick="firmarPDF()" class="firma-btn">Firmar Documento</button>
+                            <button onclick="firmarTodosPDFs()" class="firma-btn">Firmar Todos los Documentos</button>
                         </div>
                     </div>
                 </div>
@@ -1187,8 +1191,10 @@
                             <div class="signature-preview-container">
                                 <img id="signature-display" src="${window.firmaUrl || ''}" alt="Firma" style="max-width: 200px; margin: 10px 0; ${window.firmaUrl ? '' : 'display: none;'}">
                             </div>
-                            <button onclick="firmarPDF()" class="firma-btn">Firmar Documento</button>
-                            <button onclick="firmarTodosPDFs()">Firmar Todos los Documentos</button>
+                            <div class="firma-btn-group">
+                                <button onclick="firmarPDF()" class="firma-btn">Firmar Documento</button>
+                                <button onclick="firmarTodosPDFs()" class="firma-btn">Firmar Todos los Documentos</button>
+                            </div>
                         </div>
                     ` : ''}
                 </div>
@@ -2524,6 +2530,79 @@
                 throw error;
             }
         }
+
+        // ... existing code ...
+        // Función para buscar empleados (Confirmador)
+        function searchConfirmadorRowsEmpleados() {
+            try {
+                const estadoSelect = document.getElementById('confirmador-search-input-empleados');
+                if (!estadoSelect) {
+                    console.error('No se encontró el selector de estado');
+                    return;
+                }
+
+                const estadoSeleccionado = estadoSelect.value;
+                const empleadosList = document.getElementById('empleados-list');
+                
+                if (!empleadosList) {
+                    console.error('No se encontró la lista de empleados');
+                    return;
+                }
+
+                if (!sharedData.excelData || !Array.isArray(sharedData.excelData) || sharedData.excelData.length <= 1) {
+                    console.log('No hay datos para buscar');
+                    empleadosList.innerHTML = '<p>No hay datos disponibles</p>';
+                    return;
+                }
+
+                empleadosList.innerHTML = '';
+                const headers = sharedData.excelData[0];
+                
+                // Índices de las columnas de búsqueda
+                const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
+                const documentoIndex = headers.indexOf('No. DE IDENTIFICACIÓN');
+                const estadoIndex = headers.indexOf('ESTADO');
+                const cargoIndex = headers.indexOf('CARGO');
+
+                let encontrados = false;
+
+                for (let i = 1; i < sharedData.excelData.length; i++) {
+                    const row = sharedData.excelData[i];
+                    if (!row) continue;
+
+                    const nombre = String(row[nombreIndex] || '');
+                    const documento = String(row[documentoIndex] || '');
+                    const cargo = String(row[cargoIndex] || '');
+                    const estado = row[estadoIndex] || 'SIN REVISION';
+
+                    // Filtrar por estado
+                    if (estadoSeleccionado === '' || estado === estadoSeleccionado) {
+                        encontrados = true;
+                        const empleadoCard = document.createElement('div');
+                        empleadoCard.className = `empleado-card ${estado.toLowerCase().replace(' ', '-')}`;
+                        empleadoCard.innerHTML = `
+                            <div class="empleado-nombre">${nombre || 'Sin nombre'}</div>
+                            <div class="empleado-info">
+                                <span>Documento: ${documento || 'N/A'}</span>
+                                <span>Cargo: ${cargo || 'N/A'}</span>
+                            </div>
+                            <div class="empleado-estado">Estado: ${estado}</div>
+                        `;
+                        empleadoCard.onclick = () => showEmpleadoDetails(i);
+                        empleadosList.appendChild(empleadoCard);
+                    }
+                }
+
+                if (!encontrados) {
+                    empleadosList.innerHTML = '<p>No se encontraron empleados con el estado seleccionado</p>';
+                }
+
+            } catch (error) {
+                console.error('Error en la búsqueda:', error);
+                alert('Error al filtrar empleados: ' + error.message);
+            }
+        }
+        // ... existing code ...
     </script>
 </body>
 </html>
