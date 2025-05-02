@@ -2511,8 +2511,14 @@
                             const firmaX = qrX + (qrWidth / 2) - (firmaWidth / 2);
                             const firmaY = qrY - offsetY;
 
+                            // El fondo blanco solo cubre el área del QR (más 10 puntos de margen)
+                            const fondoWidth = qrWidth + 10;
+                            const fondoX = qrX - 5;
+                            const fondoY = firmaY;
+                            const fondoHeight = firmaHeight;
+
                             doc.setFillColor(255, 255, 255);
-                            doc.rect(firmaX, firmaY, firmaWidth, firmaHeight, 'F');
+                            doc.rect(fondoX, fondoY, fondoWidth, fondoHeight, 'F');
 
                             doc.addImage(
                                 window.firmaUrl,
