@@ -1337,9 +1337,6 @@
                 const lastPage = await pdfDoc.getPage(pdfDoc.numPages);
                 const viewport = lastPage.getViewport({ scale: 1.0 });
                 
-                // Extraer el texto de la página
-                const textContent = await lastPage.getTextContent();
-                
                 // Crear un canvas temporal para analizar el contenido
                 const canvas = document.createElement('canvas');
                 const context = canvas.getContext('2d');
@@ -1352,78 +1349,76 @@
                     viewport: viewport
                 }).promise;
 
-                // Buscar referencias de texto
-                let empleador = null;
-                let nombre = null;
-                let directorTexto = null;
+                // Obtener los datos de la imagen
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
 
-                for (const item of textContent.items) {
-                    const texto = item.str.toUpperCase();
-                    const y = viewport.height - item.transform[5];
-                    const x = item.transform[4];
+                // Buscar el patrón del QR (asumiendo que es un cuadrado negro con borde blanco)
+                let qrFound = false;
+                let qrX = 0;
+                let qrY = 0;
+                let qrSize = 0;
 
-                    if (texto.includes('EL EMPLEADOR')) {
-                        empleador = { x, y, texto };
-                    }
-                    else if (texto.includes('ANDREA CAROLINA AMADO')) {
-                        nombre = { x, y, texto };
-                    }
-                    else if (texto.includes('DIRECTOR')) {
-                        directorTexto = { x, y, texto };
-                    }
-                }
-
-                // Si encontramos las referencias necesarias
-                if (empleador && nombre) {
-                    // Calcular el área del recuadro de firma
-                    const areaFirma = {
-                        x: empleador.x - 20, // Un poco a la izquierda del texto
-                        y: empleador.y + 30, // Debajo del texto "EL EMPLEADOR"
-                        width: 160,          // Ancho fijo para el área de firma
-                        height: 80           // Alto fijo para el área de firma
-                    };
-
-                    // Ajustar la posición vertical basada en el espacio entre "EL EMPLEADOR" y el nombre
-                    const espacioDisponible = nombre.y - empleador.y;
-                    areaFirma.y = empleador.y + (espacioDisponible * 0.3); // Posicionar en el primer tercio del espacio
-
-                    // Verificar si hay suficiente espacio en blanco
-                    const imageData = context.getImageData(
-                        areaFirma.x, 
-                        areaFirma.y, 
-                        areaFirma.width, 
-                        areaFirma.height
-                    );
-
-                    let pixelesNoBlanco = 0;
-                    for (let i = 0; i < imageData.data.length; i += 4) {
-                        if (imageData.data[i] < 240 || 
-                            imageData.data[i + 1] < 240 || 
-                            imageData.data[i + 2] < 240) {
-                            pixelesNoBlanco++;
+                // Escanear la imagen en busca del patrón del QR
+                for (let y = 0; y < canvas.height; y++) {
+                    for (let x = 0; x < canvas.width; x++) {
+                        const index = (y * canvas.width + x) * 4;
+                        
+                        // Buscar un píxel negro (RGB cercano a 0)
+                        if (data[index] < 50 && data[index + 1] < 50 && data[index + 2] < 50) {
+                            // Verificar si es parte de un patrón de QR
+                            let isQR = true;
+                            let size = 0;
+                            
+                            // Verificar el patrón de borde blanco-negro-blanco
+                            for (let i = 0; i < 3; i++) {
+                                const checkX = x + i;
+                                const checkY = y + i;
+                                if (checkX >= canvas.width || checkY >= canvas.height) {
+                                    isQR = false;
+                                    break;
+                                }
+                                
+                                const checkIndex = (checkY * canvas.width + checkX) * 4;
+                                if (i === 0 || i === 2) {
+                                    // Debería ser blanco
+                                    if (data[checkIndex] < 200 || data[checkIndex + 1] < 200 || data[checkIndex + 2] < 200) {
+                                        isQR = false;
+                                        break;
+                                    }
+                                } else {
+                                    // Debería ser negro
+                                    if (data[checkIndex] > 50 || data[checkIndex + 1] > 50 || data[checkIndex + 2] > 50) {
+                                        isQR = false;
+                                        break;
+                                    }
+                                    size = i;
+                                }
+                            }
+                            
+                            if (isQR && size > 0) {
+                                qrFound = true;
+                                qrX = x;
+                                qrY = y;
+                                qrSize = size * 2; // Tamaño aproximado del QR
+                                break;
+                            }
                         }
                     }
+                    if (qrFound) break;
+                }
 
-                    // Si el área está relativamente limpia
-                    if (pixelesNoBlanco < (areaFirma.width * areaFirma.height * 0.1)) {
-                        return {
-                            x: areaFirma.x,
-                            y: areaFirma.y,
-                            width: areaFirma.width,
-                            height: areaFirma.height
-                        };
-                    }
-
-                    // Si el área está ocupada, intentar ajustar la posición
+                if (qrFound) {
+                    // Devolver la posición y tamaño del QR para reemplazarlo con la firma
                     return {
-                        x: empleador.x,
-                        y: empleador.y + 50,
-                        width: 140,
-                        height: 70
+                        x: qrX,
+                        y: qrY,
+                        width: qrSize,
+                        height: qrSize
                     };
                 }
 
-                // Posición por defecto si no encontramos las referencias
+                // Si no se encuentra el QR, usar posición por defecto
                 return {
                     x: 140,
                     y: 265,
