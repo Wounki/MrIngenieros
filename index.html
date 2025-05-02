@@ -1210,120 +1210,120 @@
         }
 
         async function firmarPDF() {
-            if (!currentUser || currentUser.role !== 'confirmador') {
-                alert('Solo el rol de Confirmador puede firmar documentos.');
-                return;
-            }
-
-            if (!currentPDF || !sharedData.pdfs[currentPDF]) {
-                alert('Por favor, seleccione un PDF antes de firmar.');
-                return;
-            }
-
-            if (!window.firmaUrl) {
-                alert('Por favor, cargue una firma antes de firmar.');
-                return;
-            }
-
             try {
-                // Obtener el PDF original desde sharedData.pdfs
+                if (!currentUser || currentUser.role !== 'confirmador') {
+                    alert('Solo el rol de Confirmador puede firmar documentos.');
+                    return;
+                }
+
+                if (!currentPDF || !sharedData.pdfs[currentPDF]) {
+                    alert('Por favor, seleccione un PDF antes de firmar.');
+                    return;
+                }
+
+                if (!window.firmaUrl) {
+                    alert('Por favor, cargue una firma antes de firmar.');
+                    return;
+                }
+
+                // Verificar que el PDF es válido
                 const pdfData = sharedData.pdfs[currentPDF];
                 if (!(pdfData instanceof ArrayBuffer)) {
                     throw new Error('Los datos del PDF no son válidos.');
                 }
 
-                // Cargar el PDF usando pdf.js
-                const pdfDoc = await pdfjsLib.getDocument(pdfData).promise;
-                const numPages = pdfDoc.numPages;
-
-                // Crear un nuevo PDF con jsPDF
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({
-                    format: 'a4',
-                    unit: 'px'
-                });
-
-                // Determinar la posición de la firma basada en el contenido
-                const posicionFirma = await determinarPosicionFirmaContrato(pdfDoc);
-
-                // Copiar todas las páginas del PDF original
-                for (let i = 1; i <= numPages; i++) {
-                    const page = await pdfDoc.getPage(i);
-                    // Aumentar la escala para mejor calidad
-                    const viewport = page.getViewport({ scale: 2.0 });
-
-                    // Crear un canvas para renderizar la página
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    
-                    // Ajustar el tamaño del canvas para mantener la calidad
-                    const dpr = window.devicePixelRatio || 1;
-                    canvas.width = viewport.width * dpr;
-                    canvas.height = viewport.height * dpr;
-                    context.scale(dpr, dpr);
-
-                    // Renderizar la página en el canvas
-                    await page.render({
-                        canvasContext: context,
-                        viewport: viewport
-                    }).promise;
-
-                    // Convertir el canvas a imagen usando PNG para mejor calidad
-                    const imgData = canvas.toDataURL('image/png', 1.0);
-                    if (i > 1) {
-                        doc.addPage();
+                try {
+                    // Intentar cargar el PDF para verificar que es válido
+                    const pdfDoc = await pdfjsLib.getDocument(pdfData).promise;
+                    if (!pdfDoc || !pdfDoc.numPages) {
+                        throw new Error('El PDF no se pudo cargar correctamente.');
                     }
-                    doc.addImage(
-                        imgData,
-                        'PNG',
-                        0,
-                        0,
-                        doc.internal.pageSize.width,
-                        doc.internal.pageSize.height
-                    );
+                    console.log('PDF cargado correctamente, páginas:', pdfDoc.numPages);
 
-                    // Añadir la firma solo en la última página
-                    if (i === numPages) {
-                        // Descargar la imagen de la firma desde la URL
-                        const response = await fetch(window.firmaUrl);
-                        if (!response.ok) {
-                            throw new Error('No se pudo descargar la imagen de la firma.');
+                    // Determinar la posición de la firma
+                    const posicionFirma = await determinarPosicionFirmaContrato(pdfDoc);
+                    console.log('Posición de firma determinada:', posicionFirma);
+
+                    // Crear un nuevo PDF con jsPDF
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({
+                        format: 'a4',
+                        unit: 'px'
+                    });
+
+                    // Copiar todas las páginas del PDF original
+                    for (let i = 1; i <= pdfDoc.numPages; i++) {
+                        const page = await pdfDoc.getPage(i);
+                        const viewport = page.getViewport({ scale: 2.0 });
+                        
+                        const canvas = document.createElement('canvas');
+                        const context = canvas.getContext('2d');
+                        canvas.width = viewport.width;
+                        canvas.height = viewport.height;
+                        
+                        await page.render({
+                            canvasContext: context,
+                            viewport: viewport
+                        }).promise;
+
+                        const imgData = canvas.toDataURL('image/png', 1.0);
+                        
+                        if (i > 1) {
+                            doc.addPage();
                         }
-                        const blob = await response.blob();
-                        const reader = new FileReader();
-                        const signatureDataUrl = await new Promise((resolve, reject) => {
-                            reader.onload = () => resolve(reader.result);
-                            reader.onerror = reject;
-                            reader.readAsDataURL(blob);
-                        });
-
-                        const img = new Image();
-                        img.src = signatureDataUrl;
-                        await new Promise((resolve) => { img.onload = resolve; });
-
-                        // Ajustar posición y tamaño de la firma
+                        
                         doc.addImage(
-                            img,
+                            imgData,
                             'PNG',
-                            doc.internal.pageSize.width - posicionFirma.x,
-                            doc.internal.pageSize.height - posicionFirma.y,
-                            posicionFirma.width,
-                            posicionFirma.height
+                            0,
+                            0,
+                            doc.internal.pageSize.width,
+                            doc.internal.pageSize.height
                         );
-                    }
-                }
 
-                // Descargar el PDF firmado (no guardar en Supabase ni en sharedData.pdfs)
-                const pdfArrayBuffer = doc.output('arraybuffer');
-                const signedFilename = `firmado_${currentPDF}`;
-                const blob = new Blob([pdfArrayBuffer], { type: 'application/pdf' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = signedFilename;
-                a.click();
-                URL.revokeObjectURL(url);
-                alert('Documento firmado y descargado exitosamente.');
+                        // Añadir la firma solo en la última página
+                        if (i === pdfDoc.numPages) {
+                            // Descargar la firma
+                            const response = await fetch(window.firmaUrl);
+                            if (!response.ok) {
+                                throw new Error('No se pudo descargar la imagen de la firma.');
+                            }
+                            const blob = await response.blob();
+                            const reader = new FileReader();
+                            const signatureDataUrl = await new Promise((resolve, reject) => {
+                                reader.onload = () => resolve(reader.result);
+                                reader.onerror = reject;
+                                reader.readAsDataURL(blob);
+                            });
+
+                            const img = new Image();
+                            await new Promise((resolve, reject) => {
+                                img.onload = resolve;
+                                img.onerror = reject;
+                                img.src = signatureDataUrl;
+                            });
+
+                            // Añadir la firma en la posición determinada
+                            doc.addImage(
+                                img,
+                                'PNG',
+                                posicionFirma.x,
+                                posicionFirma.y,
+                                posicionFirma.width,
+                                posicionFirma.height
+                            );
+                        }
+                    }
+
+                    // Descargar el PDF firmado
+                    const signedFilename = `firmado_${currentPDF}`;
+                    doc.save(signedFilename);
+                    alert('Documento firmado y descargado exitosamente.');
+
+                } catch (error) {
+                    console.error('Error al procesar el PDF:', error);
+                    alert('Error al procesar el PDF: ' + error.message);
+                }
 
             } catch (error) {
                 console.error('Error al firmar el PDF:', error);
@@ -1354,40 +1354,48 @@
                 // Obtener los datos de la imagen
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                 
-                // Usar jsQR para detectar el código QR
-                const code = jsQR(imageData.data, canvas.width, canvas.height);
-                
-                console.log('Resultado de la detección del QR:', code);
-
-                if (code && code.data === 'insertefirma') {
-                    console.log('QR encontrado en:', code.location);
+                // Intentar detectar el QR
+                try {
+                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                        inversionAttempts: "dontInvert",
+                    });
                     
-                    // Calcular el centro y tamaño del QR
-                    const topLeft = code.location.topLeft;
-                    const topRight = code.location.topRight;
-                    const bottomLeft = code.location.bottomLeft;
-                    
-                    // Calcular ancho y alto
-                    const width = Math.sqrt(
-                        Math.pow(topRight.x - topLeft.x, 2) + 
-                        Math.pow(topRight.y - topLeft.y, 2)
-                    );
-                    const height = Math.sqrt(
-                        Math.pow(bottomLeft.x - topLeft.x, 2) + 
-                        Math.pow(bottomLeft.y - topLeft.y, 2)
-                    );
+                    console.log('Resultado de la detección del QR:', code);
 
-                    // Ajustar por la escala y añadir margen
-                    return {
-                        x: (topLeft.x - 5) / 2,
-                        y: (topLeft.y - 5) / 2,
-                        width: (width + 10) / 2,
-                        height: (height + 10) / 2
-                    };
+                    if (code && code.data === 'insertefirma') {
+                        console.log('QR encontrado en:', code.location);
+                        
+                        // Verificar que tenemos todas las coordenadas necesarias
+                        if (code.location && 
+                            code.location.topLeft && 
+                            code.location.topRight && 
+                            code.location.bottomLeft) {
+                            
+                            // Calcular ancho y alto
+                            const width = Math.sqrt(
+                                Math.pow(code.location.topRight.x - code.location.topLeft.x, 2) + 
+                                Math.pow(code.location.topRight.y - code.location.topLeft.y, 2)
+                            );
+                            const height = Math.sqrt(
+                                Math.pow(code.location.bottomLeft.x - code.location.topLeft.x, 2) + 
+                                Math.pow(code.location.bottomLeft.y - code.location.topLeft.y, 2)
+                            );
+
+                            // Ajustar por la escala y añadir margen
+                            return {
+                                x: (code.location.topLeft.x - 5) / 2,
+                                y: (code.location.topLeft.y - 5) / 2,
+                                width: (width + 10) / 2,
+                                height: (height + 10) / 2
+                            };
+                        }
+                    }
+                } catch (qrError) {
+                    console.error('Error en la detección del QR:', qrError);
                 }
 
-                console.log('QR no encontrado, usando posición por defecto');
-                // Posición por defecto si no se encuentra el QR
+                // Si no se encuentra el QR o hay error, usar posición por defecto
+                console.log('Usando posición por defecto para la firma');
                 return {
                     x: viewport.width / 4,
                     y: viewport.height - 200,
@@ -1397,9 +1405,10 @@
 
             } catch (error) {
                 console.error('Error al determinar posición de firma:', error);
+                // Retornar una posición por defecto segura
                 return {
-                    x: viewport.width / 4,
-                    y: viewport.height - 200,
+                    x: 200,
+                    y: 500,
                     width: 140,
                     height: 70
                 };
