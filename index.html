@@ -1217,134 +1217,41 @@
 
         async function firmarPDF() {
             try {
-            if (!currentUser || currentUser.role !== 'confirmador') {
-                alert('Solo el rol de Confirmador puede firmar documentos.');
-                return;
-            }
+                if (!currentUser || currentUser.role !== 'confirmador') {
+                    alert('Solo el rol de Confirmador puede firmar documentos.');
+                    return;
+                }
 
-            if (!currentPDF || !sharedData.pdfs[currentPDF]) {
-                alert('Por favor, seleccione un PDF antes de firmar.');
-                return;
-            }
+                if (!currentPDF || !sharedData.pdfs[currentPDF]) {
+                    alert('Por favor, seleccione un PDF antes de firmar.');
+                    return;
+                }
 
-            if (!window.firmaUrl) {
-                alert('Por favor, cargue una firma antes de firmar.');
-                return;
-            }
+                if (!window.firmaUrl) {
+                    alert('Por favor, cargue una firma antes de firmar.');
+                    return;
+                }
 
                 const pdfData = sharedData.pdfs[currentPDF];
                 if (!(pdfData instanceof ArrayBuffer)) {
                     throw new Error('Los datos del PDF no son válidos.');
                 }
 
-                try {
-                const pdfDoc = await pdfjsLib.getDocument(pdfData).promise;
-                    console.log('PDF cargado correctamente, páginas:', pdfDoc.numPages);
-
-                    const posicionFirma = await determinarPosicionFirmaContrato(pdfDoc);
-                    console.log('Posición de firma determinada:', posicionFirma);
-
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF({
-                    format: 'a4',
-                        unit: 'pt'  // Cambiar a puntos para mayor precisión
-                });
-
-                    // Copiar páginas
-                    for (let i = 1; i <= pdfDoc.numPages; i++) {
-                    const page = await pdfDoc.getPage(i);
-                        const viewport = page.getViewport({ scale: 2.0 }); // Aumentamos la escala para mejor calidad
-
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.width = viewport.width;
-                        canvas.height = viewport.height;
-
-                    await page.render({
-                        canvasContext: context,
-                            viewport: viewport,
-                            intent: 'print' // Mejor calidad de impresión
-                    }).promise;
-
-                        const imgData = canvas.toDataURL('image/jpeg', 1.0); // Máxima calidad JPEG
-                        
-                    if (i > 1) {
-                        doc.addPage();
-                    }
-
-                        // Añadir página con escala ajustada
-                    doc.addImage(
-                        imgData,
-                        'JPEG',
-                        0,
-                        0,
-                        doc.internal.pageSize.width,
-                            doc.internal.pageSize.height,
-                            undefined,
-                            'FAST'
-                        );
-
-                        // Si es la última página, añadir la firma
-                        if (i === pdfDoc.numPages) {
-                            try {
-                        const response = await fetch(window.firmaUrl);
-                                if (!response.ok) throw new Error('No se pudo descargar la imagen de la firma.');
-                        const blob = await response.blob();
-                        const reader = new FileReader();
-                        const signatureDataUrl = await new Promise((resolve, reject) => {
-                            reader.onload = () => resolve(reader.result);
-                            reader.onerror = reject;
-                            reader.readAsDataURL(blob);
-                        });
-
-                        const img = new Image();
-                                await new Promise((resolve, reject) => {
-                                    img.onload = resolve;
-                                    img.onerror = reject;
-                        img.src = signatureDataUrl;
-                                });
-
-                                // Obtener las coordenadas del QR y ajustarlas a la escala del PDF
-                                const qrX = posicionFirma.x * (doc.internal.pageSize.width / (viewport.width / 2));
-                                const qrY = posicionFirma.y * (doc.internal.pageSize.height / (viewport.height / 2));
-                                const qrWidth = posicionFirma.width * (doc.internal.pageSize.width / (viewport.width / 2));
-                                const qrHeight = posicionFirma.height * (doc.internal.pageSize.height / (viewport.height / 2));
-
-                                // Ajustar la posición vertical (subir la firma)
-                                const offsetY = qrHeight * 0.15; // Subir un 15% de la altura del QR
-
-                                // Borrar el QR
-                                doc.setFillColor(255, 255, 255);
-                                doc.rect(qrX, qrY - offsetY, qrWidth, qrHeight + offsetY, 'F');
-
-                                // Añadir la firma con mejor calidad
-                        doc.addImage(
-                            img,
-                            'PNG',
-                                    qrX,
-                                    qrY - offsetY, // Aplicar el offset para subir la firma
-                                    qrWidth,
-                                    qrHeight,
-                                    undefined,
-                                    'FAST'
-                                );
-
-                            } catch (signatureError) {
-                                console.error('Error al añadir la firma:', signatureError);
-                                throw new Error('Error al añadir la firma al documento');
-                            }
-                        }
-                    }
-
-                    // Guardar el PDF firmado
+                // Usar la misma función de procesamiento que firmarTodosPDFs
+                const signedPdfBlob = await procesarYFirmarPDF(new Blob([pdfData], { type: 'application/pdf' }));
+                
+                // Crear URL y descargar
                 const signedFilename = `firmado_${currentPDF}`;
-                    doc.save(signedFilename);
-                alert('Documento firmado y descargado exitosamente.');
+                const downloadUrl = URL.createObjectURL(signedPdfBlob);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = downloadUrl;
+                downloadLink.download = signedFilename;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(downloadUrl);
 
-                } catch (error) {
-                    console.error('Error al procesar el PDF:', error);
-                    alert('Error al procesar el PDF: ' + error.message);
-                }
+                alert('Documento firmado y descargado exitosamente.');
 
             } catch (error) {
                 console.error('Error al firmar el PDF:', error);
