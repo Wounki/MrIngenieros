@@ -1233,7 +1233,7 @@
                 }
 
                 try {
-                    // Intentar cargar el PDF para verificar que es válido
+                    // Cargar el PDF
                     const pdfDoc = await pdfjsLib.getDocument(pdfData).promise;
                     if (!pdfDoc || !pdfDoc.numPages) {
                         throw new Error('El PDF no se pudo cargar correctamente.');
@@ -1244,14 +1244,14 @@
                     const posicionFirma = await determinarPosicionFirmaContrato(pdfDoc);
                     console.log('Posición de firma determinada:', posicionFirma);
 
-                    // Crear un nuevo PDF con jsPDF
+                    // Crear un nuevo PDF
                     const { jsPDF } = window.jspdf;
                     const doc = new jsPDF({
                         format: 'a4',
                         unit: 'px'
                     });
 
-                    // Copiar todas las páginas del PDF original
+                    // Copiar todas las páginas
                     for (let i = 1; i <= pdfDoc.numPages; i++) {
                         const page = await pdfDoc.getPage(i);
                         const viewport = page.getViewport({ scale: 2.0 });
@@ -1272,6 +1272,7 @@
                             doc.addPage();
                         }
                         
+                        // Añadir la página
                         doc.addImage(
                             imgData,
                             'PNG',
@@ -1281,41 +1282,53 @@
                             doc.internal.pageSize.height
                         );
 
-                        // Añadir la firma solo en la última página
+                        // Añadir la firma en la última página
                         if (i === pdfDoc.numPages) {
-                            // Descargar la firma
-                            const response = await fetch(window.firmaUrl);
-                            if (!response.ok) {
-                                throw new Error('No se pudo descargar la imagen de la firma.');
+                            try {
+                                // Cargar la firma
+                                const response = await fetch(window.firmaUrl);
+                                if (!response.ok) {
+                                    throw new Error('No se pudo descargar la imagen de la firma.');
+                                }
+                                const blob = await response.blob();
+                                const reader = new FileReader();
+                                const signatureDataUrl = await new Promise((resolve, reject) => {
+                                    reader.onload = () => resolve(reader.result);
+                                    reader.onerror = reject;
+                                    reader.readAsDataURL(blob);
+                                });
+
+                                // Añadir la firma
+                                const img = new Image();
+                                await new Promise((resolve, reject) => {
+                                    img.onload = resolve;
+                                    img.onerror = reject;
+                                    img.src = signatureDataUrl;
+                                });
+
+                                // Calcular la posición en el PDF final
+                                const pdfX = (posicionFirma.x / viewport.width) * doc.internal.pageSize.width;
+                                const pdfY = (posicionFirma.y / viewport.height) * doc.internal.pageSize.height;
+                                const pdfWidth = (posicionFirma.width / viewport.width) * doc.internal.pageSize.width;
+                                const pdfHeight = (posicionFirma.height / viewport.height) * doc.internal.pageSize.height;
+
+                                // Añadir la firma en la posición exacta del QR
+                                doc.addImage(
+                                    img,
+                                    'PNG',
+                                    pdfX,
+                                    pdfY,
+                                    pdfWidth,
+                                    pdfHeight
+                                );
+                            } catch (signatureError) {
+                                console.error('Error al añadir la firma:', signatureError);
+                                throw new Error('Error al añadir la firma al documento');
                             }
-                            const blob = await response.blob();
-                            const reader = new FileReader();
-                            const signatureDataUrl = await new Promise((resolve, reject) => {
-                                reader.onload = () => resolve(reader.result);
-                                reader.onerror = reject;
-                                reader.readAsDataURL(blob);
-                            });
-
-                            const img = new Image();
-                            await new Promise((resolve, reject) => {
-                                img.onload = resolve;
-                                img.onerror = reject;
-                                img.src = signatureDataUrl;
-                            });
-
-                            // Añadir la firma en la posición determinada
-                            doc.addImage(
-                                img,
-                                'PNG',
-                                posicionFirma.x,
-                                posicionFirma.y,
-                                posicionFirma.width,
-                                posicionFirma.height
-                            );
                         }
                     }
 
-                    // Descargar el PDF firmado
+                    // Guardar el PDF firmado
                     const signedFilename = `firmado_${currentPDF}`;
                     doc.save(signedFilename);
                     alert('Documento firmado y descargado exitosamente.');
@@ -1367,26 +1380,21 @@
                         
                         // Verificar que tenemos todas las coordenadas necesarias
                         if (code.location && 
-                            code.location.topLeft && 
-                            code.location.topRight && 
-                            code.location.bottomLeft) {
+                            code.location.topLeftCorner && 
+                            code.location.bottomRightCorner) {
                             
-                            // Calcular ancho y alto
-                            const width = Math.sqrt(
-                                Math.pow(code.location.topRight.x - code.location.topLeft.x, 2) + 
-                                Math.pow(code.location.topRight.y - code.location.topLeft.y, 2)
-                            );
-                            const height = Math.sqrt(
-                                Math.pow(code.location.bottomLeft.x - code.location.topLeft.x, 2) + 
-                                Math.pow(code.location.bottomLeft.y - code.location.topLeft.y, 2)
-                            );
+                            // Usar las coordenadas exactas del QR
+                            const qrX = code.location.topLeftCorner.x;
+                            const qrY = code.location.topLeftCorner.y;
+                            const qrWidth = code.location.bottomRightCorner.x - code.location.topLeftCorner.x;
+                            const qrHeight = code.location.bottomRightCorner.y - code.location.topLeftCorner.y;
 
-                            // Ajustar por la escala y añadir margen
+                            // Ajustar por la escala del PDF
                             return {
-                                x: (code.location.topLeft.x - 5) / 2,
-                                y: (code.location.topLeft.y - 5) / 2,
-                                width: (width + 10) / 2,
-                                height: (height + 10) / 2
+                                x: qrX / 2,
+                                y: qrY / 2,
+                                width: qrWidth / 2,
+                                height: qrHeight / 2
                             };
                         }
                     }
