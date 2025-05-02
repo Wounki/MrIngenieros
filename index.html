@@ -1299,35 +1299,41 @@
 
                                 // Calcular la posición exacta de la firma basada en el QR
                                 const pdfScale = doc.internal.pageSize.width / posicionFirma.pageWidth;
-                                const pdfX = posicionFirma.x * pdfScale;
-                                // Ajustar la coordenada Y para compensar la diferencia de origen
-                                const pdfY = (posicionFirma.y + 27) * pdfScale; // Aumentamos más el offset
-                                // Aumentar el tamaño de la firma
-                                const pdfWidth = (posicionFirma.width * 1.4) * pdfScale; // 30% más ancha
-                                const pdfHeight = (posicionFirma.height * 1.4) * pdfScale; // 30% más alta
-                                // Ajustar X para mantener la firma centrada después del cambio de tamaño
-                                const adjustedPdfX = pdfX - ((pdfWidth - (posicionFirma.width * pdfScale)) / 2);
+                                
+                                // Usar las dimensiones exactas del QR
+                                const qrWidth = posicionFirma.width * pdfScale;
+                                const qrHeight = posicionFirma.height * pdfScale;
+                                
+                                // Mantener la proporción de la firma pero con un factor de escala más preciso
+                                const aspectRatio = img.width / img.height;
+                                let firmaWidth = qrWidth * 1.1; // Reducimos a 110% del ancho del QR
+                                let firmaHeight = firmaWidth / aspectRatio;
+                                
+                                // Si la altura resultante es mayor que el QR, ajustar basado en altura
+                                if (firmaHeight > qrHeight * 1.1) {
+                                    firmaHeight = qrHeight * 1.1;
+                                    firmaWidth = firmaHeight * aspectRatio;
+                                }
+                                
+                                // Calcular posición para centrar la firma en el área del QR
+                                // Ajustamos ligeramente la posición vertical
+                                const qrX = posicionFirma.x * pdfScale;
+                                const qrY = posicionFirma.y * pdfScale;
+                                const firmaX = qrX - ((firmaWidth - qrWidth) / 2);
+                                const firmaY = qrY - ((firmaHeight - qrHeight) / 2) + (qrHeight * 0.05); // Ajuste vertical del 5%
 
-                                console.log('Añadiendo firma en coordenadas:', {
-                                    x: adjustedPdfX,
-                                    y: pdfY,
-                                    width: pdfWidth,
-                                    height: pdfHeight,
-                                    scale: pdfScale
-                                });
+                                // Primero "borrar" el QR dibujando un rectángulo blanco ligeramente más grande
+                                doc.setFillColor(255, 255, 255);
+                                doc.rect(qrX - 1, qrY - 1, qrWidth + 2, qrHeight + 2, 'F');
 
-                                // Primero "borrar" el QR dibujando un rectángulo blanco
-                                doc.setFillColor(255, 255, 255); // Color blanco
-                                doc.rect(adjustedPdfX, pdfY, pdfWidth, pdfHeight, 'F'); // 'F' significa rellenar
-
-                                // Añadir la firma en la misma posición exacta donde estaba el QR
+                                // Añadir la firma manteniendo las proporciones
                                 doc.addImage(
                                     img,
                                     'PNG',
-                                    adjustedPdfX,
-                                    pdfY,
-                                    pdfWidth,
-                                    pdfHeight
+                                    firmaX,
+                                    firmaY,
+                                    firmaWidth,
+                                    firmaHeight
                                 );
                             } catch (signatureError) {
                                 console.error('Error al añadir la firma:', signatureError);
@@ -1388,11 +1394,30 @@
 
                 // Usar exactamente las coordenadas del QR detectado
                 const scale = 2.0; // Mismo valor usado en viewport
+                const calibracionY = 5; // Pequeño ajuste hacia abajo
+                const factorEscala = 1.2; // Factor para ajustar el tamaño
+
+                // Calcular dimensiones ajustadas
+                const width = (code.location.bottomRightCorner.x - code.location.topLeftCorner.x) / scale;
+                const height = (code.location.bottomRightCorner.y - code.location.topLeftCorner.y) / scale;
+                
+                // Calcular el centro del QR para mantener la firma centrada al escalar
+                const centerX = code.location.topLeftCorner.x / scale;
+                const centerY = (code.location.topLeftCorner.y / scale) + calibracionY;
+
+                // Ajustar dimensiones con el factor de escala
+                const newWidth = width * factorEscala;
+                const newHeight = height * factorEscala;
+
+                // Ajustar posición para mantener centrado
+                const adjustedX = centerX - ((newWidth - width) / 2);
+                const adjustedY = centerY - ((newHeight - height) / 2);
+
                 return {
-                    x: code.location.topLeftCorner.x / scale,
-                    y: code.location.topLeftCorner.y / scale,
-                    width: (code.location.bottomRightCorner.x - code.location.topLeftCorner.x) / scale,
-                    height: (code.location.bottomRightCorner.y - code.location.topLeftCorner.y) / scale,
+                    x: adjustedX,
+                    y: adjustedY,
+                    width: newWidth,
+                    height: newHeight,
                     pageWidth: viewport.width / scale,
                     pageHeight: viewport.height / scale
                 };
