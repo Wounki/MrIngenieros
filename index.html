@@ -1312,7 +1312,11 @@
                                     scale: pdfScale
                                 });
 
-                                // Añadir la firma en la posición exacta del QR
+                                // Primero "borrar" el QR dibujando un rectángulo blanco
+                                doc.setFillColor(255, 255, 255); // Color blanco
+                                doc.rect(pdfX, pdfY, pdfWidth, pdfHeight, 'F'); // 'F' significa rellenar
+
+                                // Añadir la firma en la misma posición exacta donde estaba el QR
                                 doc.addImage(
                                     img,
                                     'PNG',
