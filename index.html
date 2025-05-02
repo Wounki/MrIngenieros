@@ -9,6 +9,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.rawgit.com/cozmo/jsQR/master/dist/jsQR.js"></script>
     <script>
         const { createClient } = window.supabase;
     </script>
@@ -1352,58 +1353,36 @@
 
                 // Obtener los datos de la imagen
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
+                
+                // Usar jsQR para detectar el código QR
+                const code = jsQR(imageData.data, canvas.width, canvas.height);
+                
+                console.log('Resultado de la detección del QR:', code);
 
-                // Definir área de búsqueda
-                const startX = 0;
-                const endX = canvas.width;
-                const startY = 0;
-                const endY = canvas.height;
+                if (code && code.data === 'insertefirma') {
+                    console.log('QR encontrado en:', code.location);
+                    
+                    // Calcular el centro y tamaño del QR
+                    const topLeft = code.location.topLeft;
+                    const topRight = code.location.topRight;
+                    const bottomLeft = code.location.bottomLeft;
+                    
+                    // Calcular ancho y alto
+                    const width = Math.sqrt(
+                        Math.pow(topRight.x - topLeft.x, 2) + 
+                        Math.pow(topRight.y - topLeft.y, 2)
+                    );
+                    const height = Math.sqrt(
+                        Math.pow(bottomLeft.x - topLeft.x, 2) + 
+                        Math.pow(bottomLeft.y - topLeft.y, 2)
+                    );
 
-                console.log('Dimensiones del canvas:', {width: canvas.width, height: canvas.height});
-                console.log('Área de búsqueda:', {startX, endX, startY, endY});
-
-                let bestMatch = {
-                    x: 0,
-                    y: 0,
-                    width: 0,
-                    height: 0,
-                    confidence: 0
-                };
-
-                // Tamaño esperado del QR (25x25 módulos)
-                const QR_MODULE_COUNT = 25;
-                const MIN_MODULE_SIZE = 2;
-                const MAX_MODULE_SIZE = 6;
-
-                // Buscar el QR
-                for (let y = startY; y < endY; y += 2) {
-                    for (let x = startX; x < endX; x += 2) {
-                        // Verificar si hay un posible QR en esta posición
-                        for (let moduleSize = MIN_MODULE_SIZE; moduleSize <= MAX_MODULE_SIZE; moduleSize++) {
-                            const result = verificarQREspecifico(data, x, y, moduleSize, canvas.width, canvas.height);
-                            if (result.confidence > bestMatch.confidence) {
-                                bestMatch = {
-                                    x: x,
-                                    y: y,
-                                    width: moduleSize * QR_MODULE_COUNT,
-                                    height: moduleSize * QR_MODULE_COUNT,
-                                    confidence: result.confidence
-                                };
-                                console.log('Nueva mejor coincidencia encontrada:', bestMatch);
-                            }
-                        }
-                    }
-                }
-
-                if (bestMatch.confidence > 0.7) {
-                    console.log('QR encontrado con alta confianza:', bestMatch);
-                    // Ajustar por la escala y añadir un pequeño margen
+                    // Ajustar por la escala y añadir margen
                     return {
-                        x: (bestMatch.x - 5) / 2,
-                        y: (bestMatch.y - 5) / 2,
-                        width: (bestMatch.width + 10) / 2,
-                        height: (bestMatch.height + 10) / 2
+                        x: (topLeft.x - 5) / 2,
+                        y: (topLeft.y - 5) / 2,
+                        width: (width + 10) / 2,
+                        height: (height + 10) / 2
                     };
                 }
 
