@@ -1300,12 +1300,16 @@
                                 // Calcular la posición exacta de la firma basada en el QR
                                 const pdfScale = doc.internal.pageSize.width / posicionFirma.pageWidth;
                                 const pdfX = posicionFirma.x * pdfScale;
-                                const pdfY = posicionFirma.y * pdfScale;
-                                const pdfWidth = posicionFirma.width * pdfScale;
-                                const pdfHeight = posicionFirma.height * pdfScale;
+                                // Ajustar la coordenada Y para compensar la diferencia de origen
+                                const pdfY = (posicionFirma.y + 27) * pdfScale; // Aumentamos más el offset
+                                // Aumentar el tamaño de la firma
+                                const pdfWidth = (posicionFirma.width * 1.4) * pdfScale; // 30% más ancha
+                                const pdfHeight = (posicionFirma.height * 1.4) * pdfScale; // 30% más alta
+                                // Ajustar X para mantener la firma centrada después del cambio de tamaño
+                                const adjustedPdfX = pdfX - ((pdfWidth - (posicionFirma.width * pdfScale)) / 2);
 
                                 console.log('Añadiendo firma en coordenadas:', {
-                                    x: pdfX,
+                                    x: adjustedPdfX,
                                     y: pdfY,
                                     width: pdfWidth,
                                     height: pdfHeight,
@@ -1314,13 +1318,13 @@
 
                                 // Primero "borrar" el QR dibujando un rectángulo blanco
                                 doc.setFillColor(255, 255, 255); // Color blanco
-                                doc.rect(pdfX, pdfY, pdfWidth, pdfHeight, 'F'); // 'F' significa rellenar
+                                doc.rect(adjustedPdfX, pdfY, pdfWidth, pdfHeight, 'F'); // 'F' significa rellenar
 
                                 // Añadir la firma en la misma posición exacta donde estaba el QR
                                 doc.addImage(
                                     img,
                                     'PNG',
-                                    pdfX,
+                                    adjustedPdfX,
                                     pdfY,
                                     pdfWidth,
                                     pdfHeight
