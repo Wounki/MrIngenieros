@@ -1372,49 +1372,30 @@
                     intent: 'print'
                 }).promise;
 
-                // Obtener los datos de la imagen
+                // Obtener los datos de la imagen para detectar el QR
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                 
                 // Intentar detectar el QR
-                try {
-                    const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                        inversionAttempts: "dontInvert",
-                    });
-                    
-                    console.log('Resultado de la detección del QR:', code);
-
-                    if (code && code.data === 'insertefirma') {
-                        console.log('QR encontrado en:', code.location);
-                        
-                        // Verificar que tenemos todas las coordenadas necesarias
-                        if (code.location && 
-                            code.location.topLeftCorner && 
-                            code.location.bottomRightCorner) {
-                            
-                            // Calcular las dimensiones exactas del QR
-                            const qrX = code.location.topLeftCorner.x;
-                            const qrY = code.location.topLeftCorner.y;
-                            const qrWidth = code.location.bottomRightCorner.x - code.location.topLeftCorner.x;
-                            const qrHeight = code.location.bottomRightCorner.y - code.location.topLeftCorner.y;
-
-                            // Ajustar por la escala del viewport
-                            const scale = 2.0; // Mismo valor usado en viewport
-                            return {
-                                x: qrX / scale,
-                                y: qrY / scale,
-                                width: qrWidth / scale,
-                                height: qrHeight / scale,
-                                pageWidth: viewport.width / scale,
-                                pageHeight: viewport.height / scale
-                            };
-                        }
-                    }
-                } catch (qrError) {
-                    console.error('Error en la detección del QR:', qrError);
-                    throw new Error('No se pudo detectar el código QR en el documento');
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+                
+                if (!code || code.data !== 'insertefirma') {
+                    throw new Error('No se encontró el código QR con el texto "insertefirma"');
                 }
 
-                throw new Error('No se encontró el código QR con el texto "insertefirma"');
+                console.log('QR detectado:', code.location);
+
+                // Usar exactamente las coordenadas del QR detectado
+                const scale = 2.0; // Mismo valor usado en viewport
+                return {
+                    x: code.location.topLeftCorner.x / scale,
+                    y: code.location.topLeftCorner.y / scale,
+                    width: (code.location.bottomRightCorner.x - code.location.topLeftCorner.x) / scale,
+                    height: (code.location.bottomRightCorner.y - code.location.topLeftCorner.y) / scale,
+                    pageWidth: viewport.width / scale,
+                    pageHeight: viewport.height / scale
+                };
 
             } catch (error) {
                 console.error('Error al determinar posición de firma:', error);
