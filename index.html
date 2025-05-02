@@ -1353,11 +1353,14 @@
                 // Obtener el texto de la página para encontrar referencias
                 const textContent = await lastPage.getTextContent();
                 let empleadorY = null;
+                let empleadorX = null;
 
                 // Encontrar la posición del texto "EL EMPLEADOR"
                 for (const item of textContent.items) {
-                    if (item.str.includes('EL EMPLEADOR')) {
+                    if (item.str.trim() === 'EL EMPLEADOR') {
                         empleadorY = viewport.height - item.transform[5];
+                        empleadorX = item.transform[4];
+                        console.log('Encontrado EL EMPLEADOR en:', {x: empleadorX, y: empleadorY});
                         break;
                     }
                 }
@@ -1366,13 +1369,13 @@
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imageData.data;
 
-                // Definir área de búsqueda basada en la referencia encontrada
-                const startY = empleadorY ? Math.max(0, empleadorY - 200) : Math.floor(viewport.height * 0.4);
-                const endY = Math.min(canvas.height, empleadorY ? empleadorY + 400 : Math.floor(viewport.height * 0.9));
-                
-                // Definir el área horizontal de búsqueda (primer tercio del ancho de la página)
-                const startX = Math.floor(viewport.width * 0.1);
-                const endX = Math.floor(viewport.width * 0.4);
+                // Definir área de búsqueda más precisa basada en la referencia encontrada
+                const startY = empleadorY ? Math.floor(empleadorY + 50) : Math.floor(viewport.height * 0.5);
+                const endY = empleadorY ? Math.floor(empleadorY + 300) : Math.floor(viewport.height * 0.8);
+                const startX = empleadorX ? Math.floor(empleadorX - 50) : Math.floor(viewport.width * 0.1);
+                const endX = empleadorX ? Math.floor(empleadorX + 200) : Math.floor(viewport.width * 0.4);
+
+                console.log('Área de búsqueda:', {startX, endX, startY, endY});
 
                 let qrFound = false;
                 let bestMatch = {
@@ -1383,24 +1386,18 @@
                     confidence: 0
                 };
 
-                // Buscar el patrón del QR
-                for (let y = startY; y < endY; y += 2) { // Incremento de 2 para optimizar
+                // Buscar el recuadro que contiene el QR primero
+                for (let y = startY; y < endY; y += 2) {
                     for (let x = startX; x < endX; x += 2) {
-                        const index = (y * canvas.width + x) * 4;
-                        
-                        if (esPixelNegro(data, index)) {
-                            const {size, confidence} = analizarPosibleQR(data, x, y, canvas.width, canvas.height);
-                            
-                            if (confidence > bestMatch.confidence) {
-                                bestMatch = {
-                                    x: x,
-                                    y: y,
-                                    width: size,
-                                    height: size,
-                                    confidence: confidence
-                                };
-                                if (confidence > 0.8) { // Si encontramos una coincidencia muy buena
+                        // Buscar una secuencia horizontal de píxeles negros (borde del recuadro)
+                        if (detectarBordeRecuadro(data, x, y, canvas.width)) {
+                            // Verificar si hay un QR dentro del recuadro
+                            const {encontrado, posicion} = buscarQREnRecuadro(data, x, y, canvas.width, canvas.height);
+                            if (encontrado && posicion.confidence > bestMatch.confidence) {
+                                bestMatch = posicion;
+                                if (posicion.confidence > 0.8) {
                                     qrFound = true;
+                                    console.log('QR encontrado en:', posicion);
                                     break;
                                 }
                             }
@@ -1409,8 +1406,8 @@
                     if (qrFound) break;
                 }
 
-                if (bestMatch.confidence > 0.5) { // Usar la mejor coincidencia si es lo suficientemente buena
-                    // Ajustar coordenadas por la escala
+                if (bestMatch.confidence > 0.5) {
+                    console.log('Usando mejor coincidencia encontrada:', bestMatch);
                     return {
                         x: bestMatch.x / 2,
                         y: bestMatch.y / 2,
@@ -1419,10 +1416,9 @@
                     };
                 }
 
-                // Posición por defecto si no se encuentra el QR
                 console.log('QR no encontrado, usando posición por defecto');
                 return {
-                    x: viewport.width / 4,
+                    x: empleadorX ? empleadorX : viewport.width / 4,
                     y: empleadorY ? empleadorY + 100 : viewport.height - 200,
                     width: 140,
                     height: 70
@@ -1439,68 +1435,117 @@
             }
         }
 
-        // Función para analizar un posible QR
-        function analizarPosibleQR(data, x, y, width, height) {
-            let size = 0;
-            let confidence = 0;
+        // Función para detectar el borde del recuadro que contiene el QR
+        function detectarBordeRecuadro(data, x, y, width) {
+            const MIN_BORDER_LENGTH = 20;
+            let borderLength = 0;
             
-            // Encontrar el tamaño del posible QR
-            while (x + size < width && y + size < height && esPixelNegro(data, ((y + size) * width + (x + size)) * 4)) {
-                size++;
+            // Verificar línea horizontal
+            for (let i = 0; i < MIN_BORDER_LENGTH; i++) {
+                if (x + i >= width) break;
+                const idx = (y * width + (x + i)) * 4;
+                if (!esPixelNegro(data, idx)) break;
+                borderLength++;
             }
-
-            if (size < 30 || size > 100) return { size: 0, confidence: 0 };
-
-            // Verificar patrón de los bordes
-            const puntosMuestra = [
-                {x: 0, y: 0},           // Esquina superior izquierda
-                {x: size-1, y: 0},      // Esquina superior derecha
-                {x: 0, y: size-1},      // Esquina inferior izquierda
-                {x: size/2, y: size/2}  // Centro
-            ];
-
-            let puntosCorrectos = 0;
-            for (const punto of puntosMuestra) {
-                const idx = ((y + punto.y) * width + (x + punto.x)) * 4;
-                if (esPixelNegro(data, idx)) {
-                    puntosCorrectos++;
-                }
-            }
-
-            confidence = puntosCorrectos / puntosMuestra.length;
-
-            // Verificar el borde blanco alrededor del QR
-            if (confidence > 0.5) {
-                const bordeBlanco = verificarBordeBlanco(data, x, y, size, width, height);
-                confidence = confidence * 0.7 + bordeBlanco * 0.3;
-            }
-
-            return { size, confidence };
+            
+            return borderLength >= MIN_BORDER_LENGTH;
         }
 
-        // Función para verificar el borde blanco alrededor del QR
-        function verificarBordeBlanco(data, x, y, size, width, height) {
-            const puntosBorde = [
-                {x: -1, y: size/2},    // Izquierda
-                {x: size+1, y: size/2}, // Derecha
-                {x: size/2, y: -1},     // Arriba
-                {x: size/2, y: size+1}  // Abajo
-            ];
+        // Función para buscar el QR dentro de un recuadro detectado
+        function buscarQREnRecuadro(data, startX, startY, width, height) {
+            const RECUADRO_SIZE = 100;
+            let maxConfidence = 0;
+            let bestPosition = null;
 
-            let bordesCorrectos = 0;
-            for (const punto of puntosBorde) {
-                const checkX = x + punto.x;
-                const checkY = y + punto.y;
-                
-                if (checkX >= 0 && checkX < width && checkY >= 0 && checkY < height) {
-                    const idx = (checkY * width + checkX) * 4;
-                    if (esPixelBlanco(data, idx)) {
-                        bordesCorrectos++;
+            // Buscar en el área del recuadro
+            for (let y = startY; y < Math.min(startY + RECUADRO_SIZE, height); y += 2) {
+                for (let x = startX; x < Math.min(startX + RECUADRO_SIZE, width); x += 2) {
+                    const result = verificarPatronQR(data, x, y, width, height);
+                    if (result.confidence > maxConfidence) {
+                        maxConfidence = result.confidence;
+                        bestPosition = {
+                            x: x,
+                            y: y,
+                            width: result.size,
+                            height: result.size,
+                            confidence: result.confidence
+                        };
                     }
                 }
             }
 
-            return bordesCorrectos / puntosBorde.length;
+            return {
+                encontrado: maxConfidence > 0.5,
+                posicion: bestPosition || {x: 0, y: 0, width: 0, height: 0, confidence: 0}
+            };
+        }
+
+        // Función para verificar el patrón específico del QR
+        function verificarPatronQR(data, x, y, width, height) {
+            const MIN_QR_SIZE = 40;
+            const MAX_QR_SIZE = 80;
+            
+            // Buscar el tamaño del posible QR
+            let size = 0;
+            while (size < MAX_QR_SIZE && 
+                   x + size < width && 
+                   y + size < height && 
+                   esPixelNegro(data, ((y + size) * width + (x + size)) * 4)) {
+                size++;
+            }
+            
+            if (size < MIN_QR_SIZE || size > MAX_QR_SIZE) {
+                return {size: 0, confidence: 0};
+            }
+
+            // Verificar los patrones de posición característicos del QR
+            const patrones = [
+                {x: 0, y: 0},           // Esquina superior izquierda
+                {x: size - 7, y: 0},     // Esquina superior derecha
+                {x: 0, y: size - 7}      // Esquina inferior izquierda
+            ];
+
+            let patronesEncontrados = 0;
+            for (const patron of patrones) {
+                if (verificarPatronPosicion(data, x + patron.x, y + patron.y, width)) {
+                    patronesEncontrados++;
+                }
+            }
+
+            return {
+                size: size,
+                confidence: patronesEncontrados / patrones.length
+            };
+        }
+
+        // Función para verificar un patrón de posición del QR
+        function verificarPatronPosicion(data, x, y, width) {
+            const PATRON_SIZE = 7;
+            const patronEsperado = [
+                [1, 1, 1, 1, 1, 1, 1],
+                [1, 0, 0, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 0, 1],
+                [1, 0, 1, 1, 1, 0, 1],
+                [1, 0, 1, 1, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 1],
+                [1, 1, 1, 1, 1, 1, 1]
+            ];
+
+            let coincidencias = 0;
+            const totalPixeles = PATRON_SIZE * PATRON_SIZE;
+
+            for (let dy = 0; dy < PATRON_SIZE; dy++) {
+                for (let dx = 0; dx < PATRON_SIZE; dx++) {
+                    const idx = ((y + dy) * width + (x + dx)) * 4;
+                    const esNegro = esPixelNegro(data, idx);
+                    if ((patronEsperado[dy][dx] === 1 && esNegro) ||
+                        (patronEsperado[dy][dx] === 0 && !esNegro)) {
+                        coincidencias++;
+                    }
+                }
+            }
+
+            return (coincidencias / totalPixeles) > 0.8;
         }
 
         // Función auxiliar para detectar píxel negro
