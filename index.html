@@ -10,6 +10,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdn.rawgit.com/cozmo/jsQR/master/dist/jsQR.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
         const { createClient } = window.supabase;
     </script>
@@ -141,19 +142,19 @@
                         <div class="pdf-viewer" id="confirmador-pdf-viewer" style="display: none;">
                             <h3 id="confirmador-current-pdf-name"></h3>
                             <div class="pdf-container" id="confirmador-pdf-container">
-                                <div class="signature-container">
+                                <div class="signature-container" style="margin-top: 20px; position: relative; z-index: 100;">
                                     <h3>Firma Digital</h3>
                                     <input type="file" id="signature-input-comparacion" class="signature-input" accept="image/*" onchange="handleFirmaUpload(event)">
                                     <div id="signature-placeholder-comparacion" class="signature-placeholder">
                                         <img id="signature-preview-comparacion" class="signature-preview" alt="Vista previa de la firma">
                                     </div>
-                                    <div class="signature-buttons">
-                                        <button onclick="clearSignature()">Limpiar</button>
-                                        <button onclick="firmarPDF()">Firmar Documento</button>
-                                        <button onclick="firmarTodosPDFs()">Firmar Todos los Documentos</button>
+                                    <div class="signature-buttons" style="margin-top: 10px; display: flex; gap: 10px; justify-content: center;">
+                                        <button onclick="clearSignature()" style="padding: 8px 15px;">Limpiar</button>
+                                        <button onclick="firmarPDF()" style="padding: 8px 15px;">Firmar Documento</button>
+                                        <button onclick="firmarTodosPDFs()" style="padding: 8px 15px;">Firmar Todos los Documentos</button>
                                     </div>
                                 </div>
-                                <button onclick="aprobarTodosDocumentos()" class="approve-all-btn">Aprobar Todos los Documentos</button>
+                                <button onclick="aprobarTodosDocumentos()" class="approve-all-btn" style="margin-top: 20px; position: relative; z-index: 100;">Aprobar Todos los Documentos</button>
                             </div>
                             <div style="margin-top: 20px;">
                                 <button onclick="firmarPDF()" id="download-signed-pdf" style="display: none;">Descargar PDF Firmado</button>
@@ -2411,144 +2412,140 @@
                 }
 
                 if (!window.firmaUrl) {
-                    alert('Por favor, cargue una firma antes de firmar.');
+                    alert('Por favor, cargue una firma antes de continuar.');
                     return;
                 }
 
-                // Crear un nuevo ZIP
-                const zip = new JSZip();
-
-                // Obtener todos los PDFs disponibles
-                const pdfs = Object.keys(sharedData.pdfs);
+                // Verificar si hay PDFs disponibles
+                const pdfs = Object.entries(sharedData.pdfs);
                 if (pdfs.length === 0) {
                     alert('No hay documentos para firmar.');
                     return;
                 }
 
-                // Procesar cada PDF
-                for (const pdfName of pdfs) {
+                // Crear un nuevo objeto ZIP
+                const zip = new JSZip();
+                
+                // Mostrar indicador de progreso
+                const progressDiv = document.createElement('div');
+                progressDiv.style.position = 'fixed';
+                progressDiv.style.top = '50%';
+                progressDiv.style.left = '50%';
+                progressDiv.style.transform = 'translate(-50%, -50%)';
+                progressDiv.style.padding = '20px';
+                progressDiv.style.background = 'white';
+                progressDiv.style.border = '1px solid #ccc';
+                progressDiv.style.borderRadius = '5px';
+                progressDiv.style.zIndex = '1000';
+                document.body.appendChild(progressDiv);
+
+                let processedCount = 0;
+                for (const [pdfName, pdfData] of pdfs) {
                     try {
-                        const pdfData = sharedData.pdfs[pdfName];
-                        if (!(pdfData instanceof ArrayBuffer)) {
-                            console.warn(`El PDF ${pdfName} no es un ArrayBuffer válido`);
-                            continue;
-                        }
-
-                        const pdfDoc = await pdfjsLib.getDocument(pdfData).promise;
-                        const posicionFirma = await determinarPosicionFirmaContrato(pdfDoc);
-
-                        const { jsPDF } = window.jspdf;
-                        const doc = new jsPDF({
-                            format: 'a4',
-                            unit: 'pt'
-                        });
-
-                        // Copiar páginas
-                        for (let i = 1; i <= pdfDoc.numPages; i++) {
-                            const page = await pdfDoc.getPage(i);
-                            const viewport = page.getViewport({ scale: 2.0 });
-
-                            const canvas = document.createElement('canvas');
-                            const context = canvas.getContext('2d');
-                            canvas.width = viewport.width;
-                            canvas.height = viewport.height;
-
-                            await page.render({
-                                canvasContext: context,
-                                viewport: viewport,
-                                intent: 'print'
-                            }).promise;
-
-                            const imgData = canvas.toDataURL('image/jpeg', 1.0);
-                            
-                            if (i > 1) {
-                                doc.addPage();
-                            }
-
-                            doc.addImage(
-                                imgData,
-                                'JPEG',
-                                0,
-                                0,
-                                doc.internal.pageSize.width,
-                                doc.internal.pageSize.height,
-                                undefined,
-                                'FAST'
-                            );
-
-                            // Si es la última página, añadir la firma
-                            if (i === pdfDoc.numPages) {
-                                try {
-                                    const response = await fetch(window.firmaUrl);
-                                    if (!response.ok) throw new Error('No se pudo descargar la imagen de la firma.');
-                                    const blob = await response.blob();
-                                    const reader = new FileReader();
-                                    const signatureDataUrl = await new Promise((resolve, reject) => {
-                                        reader.onload = () => resolve(reader.result);
-                                        reader.onerror = reject;
-                                        reader.readAsDataURL(blob);
-                                    });
-
-                                    const img = new Image();
-                                    await new Promise((resolve, reject) => {
-                                        img.onload = resolve;
-                                        img.onerror = reject;
-                                        img.src = signatureDataUrl;
-                                    });
-
-                                    const qrX = posicionFirma.x * (doc.internal.pageSize.width / (viewport.width / 2));
-                                    const qrY = posicionFirma.y * (doc.internal.pageSize.height / (viewport.height / 2));
-                                    const qrWidth = posicionFirma.width * (doc.internal.pageSize.width / (viewport.width / 2));
-                                    const qrHeight = posicionFirma.height * (doc.internal.pageSize.height / (viewport.height / 2));
-
-                                    const offsetY = qrHeight * 0.15;
-
-                                    doc.setFillColor(255, 255, 255);
-                                    doc.rect(qrX, qrY - offsetY, qrWidth, qrHeight + offsetY, 'F');
-
-                                    doc.addImage(
-                                        img,
-                                        'PNG',
-                                        qrX,
-                                        qrY - offsetY,
-                                        qrWidth,
-                                        qrHeight,
-                                        undefined,
-                                        'FAST'
-                                    );
-
-                                } catch (signatureError) {
-                                    console.error(`Error al añadir la firma al documento ${pdfName}:`, signatureError);
-                                    continue;
-                                }
-                            }
-                        }
-
-                        // Añadir el PDF firmado al ZIP
-                        const pdfBytes = doc.output('arraybuffer');
-                        zip.file(`firmado_${pdfName}`, pdfBytes);
-
+                        progressDiv.textContent = `Procesando documento ${processedCount + 1} de ${pdfs.length}: ${pdfName}`;
+                        
+                        // Convertir ArrayBuffer a Blob
+                        const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
+                        
+                        // Firmar el PDF
+                        const signedPdfBlob = await procesarYFirmarPDF(pdfBlob);
+                        
+                        // Añadir al ZIP
+                        zip.file(`firmado_${pdfName}`, signedPdfBlob);
+                        
+                        processedCount++;
                     } catch (error) {
-                        console.error(`Error al procesar el PDF ${pdfName}:`, error);
-                        continue;
+                        console.error(`Error procesando PDF ${pdfName}:`, error);
                     }
                 }
 
-                // Generar y descargar el ZIP
-                const zipBlob = await zip.generateAsync({ type: 'blob' });
-                const url = window.URL.createObjectURL(zipBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'documentos_firmados.zip';
-                a.click();
-                window.URL.revokeObjectURL(url);
-
-                alert('Todos los documentos han sido firmados y descargados exitosamente.');
-
+                // Generar el ZIP
+                progressDiv.textContent = 'Generando archivo ZIP...';
+                const zipBlob = await zip.generateAsync({type: 'blob'});
+                
+                // Crear URL y descargar
+                const zipUrl = URL.createObjectURL(zipBlob);
+                const downloadLink = document.createElement('a');
+                downloadLink.href = zipUrl;
+                downloadLink.download = 'documentos_firmados.zip';
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(zipUrl);
+                
+                // Eliminar indicador de progreso
+                document.body.removeChild(progressDiv);
+                
+                alert('Todos los documentos han sido firmados y descargados.');
             } catch (error) {
-                console.error('Error al firmar todos los documentos:', error);
-                alert('Error al firmar los documentos: ' + error.message);
+                console.error('Error al firmar todos los PDFs:', error);
+                alert('Ocurrió un error al procesar los documentos. Por favor, intente nuevamente.');
             }
+        }
+
+        async function procesarYFirmarPDF(pdfBlob) {
+            const arrayBuffer = await pdfBlob.arrayBuffer();
+            const pdfDoc = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+            const posicionFirma = await determinarPosicionFirmaContrato(pdfDoc);
+            
+            // Crear nuevo PDF con la firma
+            const doc = new jspdf.jsPDF({
+                orientation: 'portrait',
+                unit: 'pt'
+            });
+
+            // Copiar páginas y añadir firma
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                const page = await pdfDoc.getPage(i);
+                const viewport = page.getViewport({ scale: 2.0 });
+
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+
+                await page.render({
+                    canvasContext: context,
+                    viewport: viewport,
+                    intent: 'print'
+                }).promise;
+
+                const imgData = canvas.toDataURL('image/jpeg', 1.0);
+
+                if (i > 1) {
+                    doc.addPage();
+                }
+
+                doc.addImage(imgData, 'JPEG', 0, 0, doc.internal.pageSize.width, doc.internal.pageSize.height);
+
+                if (i === pdfDoc.numPages) {
+                    // Añadir firma en la última página
+                    const img = new Image();
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = window.firmaUrl;
+                    });
+
+                    // Obtener las coordenadas del QR y ajustarlas a la escala del PDF
+                    const qrX = posicionFirma.x * (doc.internal.pageSize.width / (viewport.width / 2));
+                    const qrY = posicionFirma.y * (doc.internal.pageSize.height / (viewport.height / 2));
+                    const qrWidth = posicionFirma.width * (doc.internal.pageSize.width / (viewport.width / 2));
+                    const qrHeight = posicionFirma.height * (doc.internal.pageSize.height / (viewport.height / 2));
+
+                    // Ajustar la posición vertical (subir la firma)
+                    const offsetY = qrHeight * 0.15;
+
+                    // Borrar el QR
+                    doc.setFillColor(255, 255, 255);
+                    doc.rect(qrX, qrY - offsetY, qrWidth, qrHeight, 'F');
+
+                    // Añadir la firma
+                    doc.addImage(window.firmaUrl, 'PNG', qrX, qrY - offsetY, qrWidth, qrHeight);
+                }
+            }
+
+            return doc.output('blob');
         }
     </script>
 </body>
