@@ -1350,31 +1350,17 @@
                     intent: 'print'
                 }).promise;
 
-                // Obtener el texto de la página para encontrar referencias
-                const textContent = await lastPage.getTextContent();
-                let empleadorY = null;
-                let empleadorX = null;
-
-                // Encontrar la posición del texto "EL EMPLEADOR"
-                for (const item of textContent.items) {
-                    if (item.str.trim() === 'EL EMPLEADOR') {
-                        empleadorY = viewport.height - item.transform[5];
-                        empleadorX = item.transform[4];
-                        console.log('Encontrado EL EMPLEADOR en:', {x: empleadorX, y: empleadorY});
-                        break;
-                    }
-                }
-
                 // Obtener los datos de la imagen
                 const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
                 const data = imageData.data;
 
-                // Definir área de búsqueda más precisa basada en la referencia encontrada
-                const startY = empleadorY ? Math.floor(empleadorY + 20) : Math.floor(viewport.height * 0.5);
-                const endY = empleadorY ? Math.floor(empleadorY + 200) : Math.floor(viewport.height * 0.8);
-                const startX = empleadorX ? Math.floor(empleadorX - 100) : 0;
-                const endX = empleadorX ? Math.floor(empleadorX + 200) : Math.floor(viewport.width * 0.4);
+                // Definir área de búsqueda
+                const startX = 0;
+                const endX = canvas.width;
+                const startY = 0;
+                const endY = canvas.height;
 
+                console.log('Dimensiones del canvas:', {width: canvas.width, height: canvas.height});
                 console.log('Área de búsqueda:', {startX, endX, startY, endY});
 
                 let bestMatch = {
@@ -1385,15 +1371,15 @@
                     confidence: 0
                 };
 
-                // Tamaño esperado del QR (25x25 módulos más quiet zone)
+                // Tamaño esperado del QR (25x25 módulos)
                 const QR_MODULE_COUNT = 25;
-                const MIN_MODULE_SIZE = 2; // Tamaño mínimo de cada módulo en píxeles
-                const MAX_MODULE_SIZE = 4; // Tamaño máximo de cada módulo en píxeles
+                const MIN_MODULE_SIZE = 2;
+                const MAX_MODULE_SIZE = 6;
 
-                // Buscar el patrón específico del QR
+                // Buscar el QR
                 for (let y = startY; y < endY; y += 2) {
                     for (let x = startX; x < endX; x += 2) {
-                        // Verificar si encontramos un patrón de posición
+                        // Verificar si hay un posible QR en esta posición
                         for (let moduleSize = MIN_MODULE_SIZE; moduleSize <= MAX_MODULE_SIZE; moduleSize++) {
                             const result = verificarQREspecifico(data, x, y, moduleSize, canvas.width, canvas.height);
                             if (result.confidence > bestMatch.confidence) {
@@ -1404,13 +1390,13 @@
                                     height: moduleSize * QR_MODULE_COUNT,
                                     confidence: result.confidence
                                 };
-                                console.log('Encontrada posible coincidencia:', bestMatch);
+                                console.log('Nueva mejor coincidencia encontrada:', bestMatch);
                             }
                         }
                     }
                 }
 
-                if (bestMatch.confidence > 0.8) {
+                if (bestMatch.confidence > 0.7) {
                     console.log('QR encontrado con alta confianza:', bestMatch);
                     // Ajustar por la escala y añadir un pequeño margen
                     return {
@@ -1422,9 +1408,10 @@
                 }
 
                 console.log('QR no encontrado, usando posición por defecto');
+                // Posición por defecto si no se encuentra el QR
                 return {
-                    x: empleadorX ? empleadorX : viewport.width / 4,
-                    y: empleadorY ? empleadorY + 50 : viewport.height - 200,
+                    x: viewport.width / 4,
+                    y: viewport.height - 200,
                     width: 140,
                     height: 70
                 };
@@ -1440,7 +1427,7 @@
             }
         }
 
-        // Función para verificar el QR específico de "insertefirma"
+        // Función para verificar el QR específico
         function verificarQREspecifico(data, x, y, moduleSize, width, height) {
             // Patrón de posición del QR (7x7 módulos)
             const FINDER_PATTERN = [
@@ -1461,6 +1448,7 @@
             ];
 
             let totalConfidence = 0;
+            let validPatterns = 0;
 
             // Verificar cada patrón de posición
             for (const pos of positions) {
@@ -1487,56 +1475,90 @@
                 }
 
                 if (totalPixels > 0) {
-                    totalConfidence += patternConfidence / totalPixels;
+                    const confidence = patternConfidence / totalPixels;
+                    if (confidence > 0.8) {
+                        validPatterns++;
+                        totalConfidence += confidence;
+                    }
                 }
             }
 
             // Verificar el borde blanco (quiet zone)
-            const quietZoneConfidence = verificarQuietZone(data, x, y, moduleSize, width, height);
+            const quietZoneConfidence = verificarQuietZone(data, x, y, moduleSize * 25, width, height);
 
-            // Combinar las confianzas
+            // Calcular confianza final
+            const finalConfidence = validPatterns === 3 ? 
+                (totalConfidence / 3) * 0.8 + quietZoneConfidence * 0.2 : 0;
+
             return {
-                confidence: (totalConfidence / 3) * 0.8 + quietZoneConfidence * 0.2
+                confidence: finalConfidence
             };
         }
 
         // Función para verificar el borde blanco alrededor del QR
-        function verificarQuietZone(data, x, y, moduleSize, width, height) {
-            const qrSize = 25 * moduleSize; // Tamaño total del QR
-            const checkPoints = [
-                {x: -moduleSize, y: qrSize/2},     // Izquierda
-                {x: qrSize + moduleSize, y: qrSize/2}, // Derecha
-                {x: qrSize/2, y: -moduleSize},     // Arriba
-                {x: qrSize/2, y: qrSize + moduleSize}  // Abajo
-            ];
+        function verificarQuietZone(data, x, y, size, width, height) {
+            const QUIET_ZONE_SIZE = 4; // Tamaño del borde blanco en módulos
+            let whitePixels = 0;
+            let totalPixels = 0;
 
-            let whitePoints = 0;
-            let totalPoints = 0;
-
-            for (const point of checkPoints) {
-                const checkX = x + point.x;
-                const checkY = y + point.y;
-
-                if (checkX >= 0 && checkX < width && checkY >= 0 && checkY < height) {
-                    const idx = (checkY * width + checkX) * 4;
-                    if (esPixelBlanco(data, idx)) {
-                        whitePoints++;
+            // Verificar bordes superior e inferior
+            for (let px = -QUIET_ZONE_SIZE; px < size + QUIET_ZONE_SIZE; px++) {
+                // Borde superior
+                for (let py = -QUIET_ZONE_SIZE; py < 0; py++) {
+                    const pixelX = x + px;
+                    const pixelY = y + py;
+                    if (pixelX >= 0 && pixelX < width && pixelY >= 0 && pixelY < height) {
+                        const idx = (pixelY * width + pixelX) * 4;
+                        if (!esPixelNegro(data, idx)) whitePixels++;
+                        totalPixels++;
                     }
-                    totalPoints++;
+                }
+                // Borde inferior
+                for (let py = size; py < size + QUIET_ZONE_SIZE; py++) {
+                    const pixelX = x + px;
+                    const pixelY = y + py;
+                    if (pixelX >= 0 && pixelX < width && pixelY >= 0 && pixelY < height) {
+                        const idx = (pixelY * width + pixelX) * 4;
+                        if (!esPixelNegro(data, idx)) whitePixels++;
+                        totalPixels++;
+                    }
                 }
             }
 
-            return totalPoints > 0 ? whitePoints / totalPoints : 0;
+            // Verificar bordes izquierdo y derecho
+            for (let py = 0; py < size; py++) {
+                // Borde izquierdo
+                for (let px = -QUIET_ZONE_SIZE; px < 0; px++) {
+                    const pixelX = x + px;
+                    const pixelY = y + py;
+                    if (pixelX >= 0 && pixelX < width && pixelY >= 0 && pixelY < height) {
+                        const idx = (pixelY * width + pixelX) * 4;
+                        if (!esPixelNegro(data, idx)) whitePixels++;
+                        totalPixels++;
+                    }
+                }
+                // Borde derecho
+                for (let px = size; px < size + QUIET_ZONE_SIZE; px++) {
+                    const pixelX = x + px;
+                    const pixelY = y + py;
+                    if (pixelX >= 0 && pixelX < width && pixelY >= 0 && pixelY < height) {
+                        const idx = (pixelY * width + pixelX) * 4;
+                        if (!esPixelNegro(data, idx)) whitePixels++;
+                        totalPixels++;
+                    }
+                }
+            }
+
+            return totalPixels > 0 ? whitePixels / totalPixels : 0;
         }
 
-        // Función auxiliar para detectar píxel negro
-        function esPixelNegro(data, index) {
-            return data[index] < 50 && data[index + 1] < 50 && data[index + 2] < 50;
-        }
-
-        // Función auxiliar para detectar píxel blanco
-        function esPixelBlanco(data, index) {
-            return data[index] > 200 && data[index + 1] > 200 && data[index + 2] > 200;
+        // Función auxiliar para determinar si un pixel es negro
+        function esPixelNegro(data, idx) {
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            const brightness = (r + g + b) / 3;
+            return brightness < 128;
         }
 
         // Función para buscar PDFs (Confirmador)
