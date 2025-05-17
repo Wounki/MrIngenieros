@@ -951,11 +951,28 @@
                     throw new Error('No se encontraron los datos del empleado');
                 }
 
+                // Obtener los datos del empleado
+                const headers = sharedData.excelData[0];
+                const rowData = sharedData.excelData[rowIndex];
+                const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
+                const documentoIndex = headers.indexOf('No. DE IDENTIFICACIÓN');
+                
                 // Actualizar el estado en los datos
                 sharedData.excelData[rowIndex][colIndex] = newEstado;
 
-                // Guardar cambios en Supabase
+                // Guardar cambios en shared_data
                 await saveToSupabase();
+
+                // Actualizar en la tabla empleados
+                const { error: empleadoError } = await supabase
+                    .from('empleados')
+                    .update({ estado: newEstado })
+                    .eq('no_de_identificacion', rowData[documentoIndex]);
+
+                if (empleadoError) {
+                    console.error('Error al actualizar estado en tabla empleados:', empleadoError);
+                    throw empleadoError;
+                }
 
                 // Actualizar la vista de la lista de empleados
                 const empleadosList = document.getElementById('empleados-list');
@@ -969,7 +986,7 @@
                     }
                 }
 
-                console.log('Estado actualizado correctamente');
+                console.log('Estado actualizado correctamente en ambas tablas');
             } catch (error) {
                 console.error('Error al actualizar el estado:', error);
                 alert('Error al actualizar el estado: ' + error.message);
