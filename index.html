@@ -744,28 +744,7 @@
         // Función para formatear fechas
         function formatDate(dateString) {
             if (!dateString) return '';
-            
-            try {
-                // Si es una fecha en formato YYYY-MM-DD (desde input type="date")
-                if (dateString.includes('-')) {
-                    const [year, month, day] = dateString.split('-');
-                    return `${day}/${month}/${year}`;
-                }
-                
-                // Si es un número (fecha de Excel)
-                if (!isNaN(dateString)) {
-                    const date = new Date((dateString - 25569) * 86400 * 1000);
-                    const day = date.getDate().toString().padStart(2, '0');
-                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                    const year = date.getFullYear();
-                    return `${day}/${month}/${year}`;
-                }
-                
-                return dateString;
-            } catch (error) {
-                console.error('Error al formatear fecha:', error);
-                return dateString;
-            }
+            return String(dateString).trim();
         }
         
         // Función para alternar la visibilidad de la lista de PDFs (Revisor)
@@ -1558,12 +1537,9 @@
                 const div = document.createElement('div');
                 div.className = 'form-group';
                 const headerNorm = normalizarTexto(header);
-                const isDate = header.toLowerCase().includes('fecha');
-                let value = rowData[index] || '';
-                if (isDate && value) {
-                    value = formatDate(value);
-                }
+                let value = String(rowData[index] || '').trim();
                 let inputHtml = '';
+                
                 if (selectOptionsNorm[headerNorm]) {
                     // Campo de selección
                     inputHtml = `
@@ -1582,15 +1558,6 @@
                                  data-row="${rowIndex}" 
                                  data-col="${index}"
                                  rows="3">${value}</textarea>`;
-                } else if (isDate) {
-                    // Campo de fecha
-                    inputHtml = `
-                        <input type="text" 
-                               value="${value}"
-                               data-row="${rowIndex}"
-                               data-col="${index}"
-                               data-is-date="true"
-                               placeholder="DD/MM/YYYY">`;
                 } else {
                     // Campo de texto normal
                     inputHtml = `
@@ -1617,12 +1584,7 @@
                 input.addEventListener('change', function(e) {
                     const row = parseInt(this.dataset.row);
                     const col = parseInt(this.dataset.col);
-                    const isDate = this.dataset.isDate === 'true';
-                    let value = this.value;
-
-                    if (isDate) {
-                        value = formatDate(value);
-                    }
+                    let value = String(this.value).trim();
 
                     if (row >= 0 && col >= 0) {
                         sharedData.excelData[row][col] = value;
@@ -2331,10 +2293,47 @@
                     return;
                 }
 
-                // Verificar si hay PDFs disponibles
-                const pdfs = Object.entries(sharedData.pdfs);
-                if (pdfs.length === 0) {
-                    alert('No hay documentos para firmar.');
+                // Verificar si hay datos de Excel
+                if (!sharedData.excelData || sharedData.excelData.length <= 1) {
+                    alert('No hay datos de empleados disponibles.');
+                    return;
+                }
+
+                // Obtener headers y encontrar índices relevantes
+                const headers = sharedData.excelData[0];
+                const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
+                const estadoIndex = headers.indexOf('ESTADO');
+                const pdfIndex = headers.indexOf('PDF_ASOCIADO');
+
+                if (nombreIndex === -1 || estadoIndex === -1) {
+                    alert('No se encontraron las columnas necesarias en el Excel.');
+                    return;
+                }
+
+                // Filtrar documentos autorizados
+                const documentosAutorizados = [];
+                for (let i = 1; i < sharedData.excelData.length; i++) {
+                    const row = sharedData.excelData[i];
+                    if (row && row[estadoIndex] === 'AUTORIZADO') {
+                        const nombreEmpleado = String(row[nombreIndex] || '').trim();
+                        if (nombreEmpleado) {
+                            // Buscar PDF correspondiente
+                            const pdfEncontrado = Object.keys(sharedData.pdfs).find(filename => 
+                                filename.toLowerCase().includes('contrato') && 
+                                filename.toLowerCase().includes(nombreEmpleado.toLowerCase())
+                            );
+                            if (pdfEncontrado) {
+                                documentosAutorizados.push({
+                                    nombre: nombreEmpleado,
+                                    pdfName: pdfEncontrado
+                                });
+                            }
+                        }
+                    }
+                }
+
+                if (documentosAutorizados.length === 0) {
+                    alert('No hay documentos autorizados para firmar.');
                     return;
                 }
 
@@ -2355,10 +2354,16 @@
                 document.body.appendChild(progressDiv);
 
                 let processedCount = 0;
-                for (const [pdfName, pdfData] of pdfs) {
+                for (const doc of documentosAutorizados) {
                     try {
-                        progressDiv.textContent = `Procesando documento ${processedCount + 1} de ${pdfs.length}: ${pdfName}`;
+                        progressDiv.textContent = `Procesando documento ${processedCount + 1} de ${documentosAutorizados.length}: ${doc.pdfName}`;
                         
+                        const pdfData = sharedData.pdfs[doc.pdfName];
+                        if (!pdfData) {
+                            console.warn(`No se encontró el PDF para ${doc.nombre}`);
+                            continue;
+                        }
+
                         // Convertir ArrayBuffer a Blob
                         const pdfBlob = new Blob([pdfData], { type: 'application/pdf' });
                         
@@ -2366,12 +2371,18 @@
                         const signedPdfBlob = await procesarYFirmarPDF(pdfBlob);
                         
                         // Añadir al ZIP
-                        zip.file(`firmado_${pdfName}`, signedPdfBlob);
+                        zip.file(`firmado_${doc.pdfName}`, signedPdfBlob);
                         
                         processedCount++;
                     } catch (error) {
-                        console.error(`Error procesando PDF ${pdfName}:`, error);
+                        console.error(`Error procesando PDF ${doc.pdfName}:`, error);
                     }
+                }
+
+                if (processedCount === 0) {
+                    alert('No se pudo procesar ningún documento.');
+                    document.body.removeChild(progressDiv);
+                    return;
                 }
 
                 // Generar el ZIP
@@ -2391,7 +2402,7 @@
                 // Eliminar indicador de progreso
                 document.body.removeChild(progressDiv);
                 
-                alert('Todos los documentos han sido firmados y descargados.');
+                alert(`Se han firmado y descargado ${processedCount} documentos autorizados.`);
             } catch (error) {
                 console.error('Error al firmar todos los PDFs:', error);
                 alert('Ocurrió un error al procesar los documentos. Por favor, intente nuevamente.');
