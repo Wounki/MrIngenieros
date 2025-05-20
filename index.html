@@ -179,23 +179,23 @@
                 <!-- Columna izquierda: Listas -->
                 <div style="flex: 1; min-width: 320px; max-width: 400px; display: flex; flex-direction: column; gap: 20px;">
                     <!-- Autorización de Documento -->
-                    <div class="empleados-section">
-                        <h2>Autorización de Documento</h2>
-                        <div class="search-container">
-                            <select id="confirmador-search-input-empleados" 
-                                    class="search-input estado-select" 
-                                    onchange="searchConfirmadorRowsEmpleados()">
-                                <option value="">Todos los estados</option>
-                                <option value="SIN REVISION">Sin Revisión</option>
-                                <option value="PENDIENTE">Pendiente</option>
-                                <option value="REVISADO">Revisado</option>
-                            </select>
-                        </div>
-                        <div id="no-docs-message" style="display: none; padding: 15px; background: #fff3e0; border-radius: 4px; margin: 10px 0;">
-                            No hay documentos para autorizar.
-                        </div>
-                        <div id="empleados-list" class="empleados-list"></div>
+                <div class="empleados-section">
+                    <h2>Autorización de Documento</h2>
+                    <div class="search-container">
+                        <select id="confirmador-search-input-empleados" 
+                               class="search-input estado-select" 
+                               onchange="searchConfirmadorRowsEmpleados()">
+                            <option value="">Todos los estados</option>
+                            <option value="SIN REVISION">Sin Revisión</option>
+                            <option value="PENDIENTE">Pendiente</option>
+                            <option value="REVISADO">Revisado</option>
+                        </select>
                     </div>
+                    <div id="no-docs-message" style="display: none; padding: 15px; background: #fff3e0; border-radius: 4px; margin: 10px 0;">
+                        No hay documentos para autorizar.
+                    </div>
+                    <div id="empleados-list" class="empleados-list"></div>
+                </div>
                     <!-- Histórico debajo -->
                     <div class="empleados-section">
                         <h2>Histórico de Empleados</h2>
@@ -383,8 +383,8 @@
 
         // Función para manejar la carga de firma
         async function handleFirmaUpload(event) {
-            if (!currentUser || currentUser.role !== 'confirmador') {
-                alert('Solo el rol de Confirmador puede cargar una firma.');
+            if (!currentUser || currentUser.role !== 'DirectoraRH') {
+                alert('Solo el rol de DirectoraRH puede cargar una firma.');
                 event.target.value = '';
                 return;
             }
@@ -955,7 +955,7 @@
                 const rowData = sharedData.excelData[rowIndex];
                 const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
                 const documentoIndex = headers.indexOf('No. DE IDENTIFICACIÓN');
-                
+
                 // Actualizar el estado en los datos
                 sharedData.excelData[rowIndex][colIndex] = newEstado;
 
@@ -1212,7 +1212,7 @@
         async function firmarPDF() {
             try {
                 if (!currentUser || currentUser.role !== 'DirectoraRH') {
-                    alert('Solo el rol de DirectorRH puede firmar documentos.');
+                    alert('Solo el rol de DirectoraRH puede firmar documentos.');
                     return;
                 }
 
@@ -1872,7 +1872,7 @@
                 const email = document.getElementById('username').value;
                 const password = document.getElementById('password').value;
                 const loginError = document.getElementById('login-error');
-
+                
                 // Iniciar sesión con Supabase Auth
                 const { data, error } = await supabase.auth.signInWithPassword({
                     email,
@@ -1918,6 +1918,7 @@
                     await new Promise(resolve => setTimeout(resolve, 100));
                     await loadConfirmadorData();
                     initRealtimeSubscription();
+                    await cargarFirmaDirectora();
                 } else {
                     alert('Rol no reconocido. Contacte al administrador.');
                 }
@@ -2284,8 +2285,8 @@
         // Función para firmar todos los PDFs y descargarlos en un ZIP
         async function firmarTodosPDFs() {
             try {
-                if (!currentUser || currentUser.role !== 'confirmador') {
-                    alert('Solo el rol de Confirmador puede firmar documentos.');
+                if (!currentUser || currentUser.role !== 'DirectoraRH') {
+                    alert('Solo el rol de DirectoraRH puede firmar documentos.');
                     return;
                 }
 
@@ -2735,6 +2736,114 @@
                 contenedor.appendChild(empleadoCard);
             });
         }
+
+        // Función para cargar la firma de la DirectoraRH desde Supabase Storage (nombre fijo)
+        async function cargarFirmaDirectora() {
+            if (!currentUser || currentUser.role !== 'DirectoraRH') return;
+            window.firmaUrl = "https://ixhsjtsilnfhuzgvkyve.supabase.co/storage/v1/object/public/firmas//firma.png";
+            document.querySelectorAll('.signature-preview').forEach(preview => {
+                preview.src = window.firmaUrl;
+                preview.style.display = 'block';
+            });
+            document.querySelectorAll('.signature-placeholder').forEach(placeholder => {
+                placeholder.style.display = 'none';
+            });
+        }
+    </script>
+
+    <!-- Botón para abrir el modal de cambio de contraseña en ambos dashboards -->
+    <style>
+    #modal-cambio-contrasena {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.3);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    #modal-cambio-contrasena .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      max-width: 350px;
+      margin: auto;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.15);
+    }
+    </style>
+
+    <script>
+    function abrirModalCambioContrasena() {
+        document.getElementById('modal-cambio-contrasena').style.display = 'flex';
+        document.getElementById('nueva-contrasena').value = '';
+        document.getElementById('confirmar-contrasena').value = '';
+        document.getElementById('mensaje-cambio-contrasena').textContent = '';
+    }
+    function cerrarModalCambioContrasena() {
+        document.getElementById('modal-cambio-contrasena').style.display = 'none';
+    }
+    async function cambiarContrasena() {
+        const nueva = document.getElementById('nueva-contrasena').value;
+        const confirmar = document.getElementById('confirmar-contrasena').value;
+        const mensaje = document.getElementById('mensaje-cambio-contrasena');
+        mensaje.style.color = 'red';
+        if (nueva.length < 6) {
+            mensaje.textContent = 'La contraseña debe tener al menos 6 caracteres.';
+            return;
+        }
+        if (nueva !== confirmar) {
+            mensaje.textContent = 'Las contraseñas no coinciden.';
+            return;
+        }
+        const { error } = await supabase.auth.updateUser({ password: nueva });
+        if (error) {
+            mensaje.textContent = 'Error al cambiar la contraseña: ' + error.message;
+        } else {
+            mensaje.style.color = 'green';
+            mensaje.textContent = '¡Contraseña cambiada exitosamente!';
+            setTimeout(cerrarModalCambioContrasena, 1500);
+        }
+    }
+    </script>
+
+    <!-- Modal de cambio de contraseña -->
+    <div id="modal-cambio-contrasena">
+      <div class="modal-content">
+        <h3>Cambiar contraseña</h3>
+        <input type="password" id="nueva-contrasena" placeholder="Nueva contraseña" style="width:100%; margin-bottom:10px;">
+        <input type="password" id="confirmar-contrasena" placeholder="Confirmar contraseña" style="width:100%; margin-bottom:10px;">
+        <div id="mensaje-cambio-contrasena" style="margin-bottom:10px;"></div>
+        <button onclick="cambiarContrasena()" style="width:100%; margin-bottom:10px;">Guardar</button>
+        <button onclick="cerrarModalCambioContrasena()" style="width:100%;">Cancelar</button>
+      </div>
+    </div>
+
+    <!-- Agregar el botón en los dashboards -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // RH
+        const rhHeader = document.querySelector('#revisor-dashboard .header div');
+        if (rhHeader) {
+            const btn = document.createElement('button');
+            btn.textContent = 'Cambiar contraseña';
+            btn.className = 'logout-btn';
+            btn.style.background = '#1976d2';
+            btn.style.marginLeft = '10px';
+            btn.onclick = abrirModalCambioContrasena;
+            rhHeader.appendChild(btn);
+        }
+        // DirectoraRH
+        const drhHeader = document.querySelector('#confirmador-dashboard .header div');
+        if (drhHeader) {
+            const btn = document.createElement('button');
+            btn.textContent = 'Cambiar contraseña';
+            btn.className = 'logout-btn';
+            btn.style.background = '#1976d2';
+            btn.style.marginLeft = '10px';
+            btn.onclick = abrirModalCambioContrasena;
+            drhHeader.appendChild(btn);
+        }
+    });
     </script>
 </body>
 </html>
