@@ -888,7 +888,7 @@
                 infoItem.className = 'info-item';
                 
                 // Si es el campo ESTADO y el usuario es confirmador, mostrar select
-                if (header === 'ESTADO' && currentUser && currentUser.role === 'confirmador') {
+                if (header === 'ESTADO' && currentUser && currentUser.role === 'DirectoraRH') {
                     const estadoOptions = ['SIN REVISION', 'PENDIENTE', 'REVISADO', 'AUTORIZADO'];
                     const currentEstado = rowData[index] || 'SIN REVISION';
                     infoItem.innerHTML = `
@@ -1174,7 +1174,7 @@
                         <button onclick="closePDFViewer()" class="close-btn">×</button>
                     </div>
                     <div class="pdf-container" id="pdf-container-modal"></div>
-                    ${currentUser && currentUser.role === 'confirmador' ? `
+                    ${currentUser && currentUser.role === 'DirectoraRH' ? `
                         <div class="firma-section">
                             <div class="signature-preview-container">
                                 <img id="signature-display" src="${window.firmaUrl || ''}" alt="Firma" style="max-width: 200px; margin: 10px 0; ${window.firmaUrl ? '' : 'display: none;'}">
@@ -1211,8 +1211,8 @@
 
         async function firmarPDF() {
             try {
-                if (!currentUser || currentUser.role !== 'confirmador') {
-                    alert('Solo el rol de Confirmador puede firmar documentos.');
+                if (!currentUser || currentUser.role !== 'DirectoraRH') {
+                    alert('Solo el rol de DirectorRH puede firmar documentos.');
                     return;
                 }
 
