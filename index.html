@@ -181,16 +181,7 @@
                     <!-- Autorización de Documento -->
                 <div class="empleados-section">
                     <h2>Autorización Nuevos Ingresos</h2>
-                    <div class="search-container">
-                        <select id="confirmador-search-input-empleados" 
-                               class="search-input estado-select" 
-                               onchange="searchConfirmadorRowsEmpleados()">
-                            <option value="">Todos los estados</option>
-                            <option value="SIN REVISION">Sin Revisión</option>
-                            <option value="PENDIENTE">Pendiente</option>
-                            <option value="REVISADO">Revisado</option>
-                        </select>
-                    </div>
+                    <!-- Filtro de estados eliminado, solo se muestran empleados con estado permitido -->
                     <div id="no-docs-message" style="display: none; padding: 15px; background: #fff3e0; border-radius: 4px; margin: 10px 0;">
                         No hay documentos para autorizar.
                     </div>
@@ -3006,6 +2997,10 @@
                 contenedor.innerHTML = '<p>No hay empleados para mostrar</p>';
                 return;
             }
+            // Obtener headers para buscar índices
+            const headers = sharedData.excelData ? sharedData.excelData[0] : [];
+            const nombreIdx = headers ? headers.indexOf('NOMBRES Y APELLIDOS') : -1;
+            const docIdx = headers ? headers.indexOf('No. DE IDENTIFICACIÓN') : -1;
             empleados.forEach(empleado => {
                 const empleadoCard = document.createElement('div');
                 empleadoCard.className = `empleado-card ${empleado.estado?.toLowerCase().replace(' ', '-') || 'sin-revision'}`;
@@ -3018,8 +3013,16 @@
                     <div class="empleado-estado">Estado: ${empleado.estado || 'SIN REVISION'}</div>
                 `;
                 // Solo permitir interacción con empleados recientes
-                if (esReciente) {
-                    empleadoCard.onclick = () => showEmpleadoDetails(empleado);
+                if (esReciente && nombreIdx !== -1 && docIdx !== -1) {
+                    // Buscar el índice de la fila en sharedData.excelData
+                    const rowIndex = sharedData.excelData.findIndex((row, idx) =>
+                        idx > 0 && row &&
+                        row[nombreIdx] === empleado.nombres_y_apellidos &&
+                        row[docIdx] === empleado.no_de_identificacion
+                    );
+                    if (rowIndex > 0) {
+                        empleadoCard.onclick = () => showEmpleadoDetails(rowIndex);
+                    }
                 }
                 contenedor.appendChild(empleadoCard);
             });
