@@ -3001,6 +3001,20 @@
             const headers = sharedData.excelData ? sharedData.excelData[0] : [];
             const nombreIdx = headers ? headers.indexOf('NOMBRES Y APELLIDOS') : -1;
             const docIdx = headers ? headers.indexOf('No. DE IDENTIFICACIÓN') : -1;
+            // Función para normalizar texto
+            function normalizarTexto(texto) {
+                return String(texto || '')
+                    .toUpperCase()
+                    .replace(/[ÁÀÄÂ]/g, 'A')
+                    .replace(/[ÉÈËÊ]/g, 'E')
+                    .replace(/[ÍÌÏÎ]/g, 'I')
+                    .replace(/[ÓÒÖÔ]/g, 'O')
+                    .replace(/[ÚÙÜÛ]/g, 'U')
+                    .replace(/Ñ/g, 'N')
+                    .replace(/[^A-Z0-9]/g, '')
+                    .replace(/\s+/g, '')
+                    .trim();
+            }
             empleados.forEach(empleado => {
                 const empleadoCard = document.createElement('div');
                 empleadoCard.className = `empleado-card ${empleado.estado?.toLowerCase().replace(' ', '-') || 'sin-revision'}`;
@@ -3014,13 +3028,13 @@
                 `;
                 // Solo permitir interacción con empleados recientes
                 if (esReciente && nombreIdx !== -1 && docIdx !== -1) {
-                    // Buscar el índice de la fila en sharedData.excelData
+                    // Buscar el índice de la fila en sharedData.excelData usando comparación normalizada
                     const rowIndex = sharedData.excelData.findIndex((row, idx) =>
                         idx > 0 && row &&
-                        row[nombreIdx] === empleado.nombres_y_apellidos &&
-                        row[docIdx] === empleado.no_de_identificacion
+                        normalizarTexto(row[nombreIdx]) === normalizarTexto(empleado.nombres_y_apellidos) &&
+                        normalizarTexto(row[docIdx]) === normalizarTexto(empleado.no_de_identificacion)
                     );
-                    if (rowIndex > 0) {
+                    if (rowIndex >= 0) {
                         empleadoCard.onclick = () => showEmpleadoDetails(rowIndex);
                     }
                 }
