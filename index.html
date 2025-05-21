@@ -1232,14 +1232,16 @@
         // Función para actualizar la lista de PDFs del confirmador
         function updateConfirmadorPDFList() {
             const pdfListContent = document.getElementById('confirmador-pdf-list-content');
-            if (!pdfListContent) return;
-
-            pdfListContent.innerHTML = '';
+            if (!pdfListContent) {
+                console.warn('No se encontró el contenedor #confirmador-pdf-list-content');
+                return;
+            }
+            // Bloque de prueba para descartar problemas de visibilidad
+            pdfListContent.innerHTML = '<div style="background:yellow; padding:10px; font-weight:bold;">PRUEBA DE RENDERIZADO</div>';
             const pdfs = sharedData.pdfs;
             const pdfCount = Object.keys(pdfs).length;
-
+            console.log('Intentando renderizar PDFs en updateConfirmadorPDFList:', Object.keys(pdfs));
             if (pdfCount > 0) {
-                console.log('PDFs encontrados:', Object.keys(pdfs));
                 Object.keys(pdfs).forEach(filename => {
                     const thumbnail = document.createElement('div');
                     thumbnail.className = 'pdf-thumbnail';
@@ -1255,8 +1257,10 @@
                     thumbnail.onclick = () => displayConfirmadorPDF(filename);
                     pdfListContent.appendChild(thumbnail);
                 });
+                console.log('PDFs renderizados en la interfaz:', pdfCount);
             } else {
-                pdfListContent.innerHTML = '<p style="text-align: center; color: #666;">No hay PDFs disponibles</p>';
+                pdfListContent.innerHTML += '<p style="text-align: center; color: #666;">No hay PDFs disponibles</p>';
+                console.log('No hay PDFs para mostrar');
             }
         }
 
