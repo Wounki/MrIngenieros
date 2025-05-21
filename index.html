@@ -181,6 +181,16 @@
                     <!-- Autorización de Documento -->
                 <div class="empleados-section">
                     <h2>Autorización Nuevos Ingresos</h2>
+                    <div class="search-container">
+                        <select id="confirmador-search-input-empleados" 
+                               class="search-input estado-select" 
+                               onchange="searchConfirmadorRowsEmpleados()">
+                            <option value="">Todos los estados</option>
+                            <option value="SIN REVISION">Sin Revisión</option>
+                            <option value="PENDIENTE">Pendiente</option>
+                            <option value="REVISADO">Revisado</option>
+                        </select>
+                    </div>
                     <!-- Filtro de estados eliminado, solo se muestran empleados con estado permitido -->
                     <div id="no-docs-message" style="display: none; padding: 15px; background: #fff3e0; border-radius: 4px; margin: 10px 0;">
                         No hay documentos para autorizar.
@@ -3001,6 +3011,7 @@
             const headers = sharedData.excelData ? sharedData.excelData[0] : [];
             const nombreIdx = headers ? headers.indexOf('NOMBRES Y APELLIDOS') : -1;
             const docIdx = headers ? headers.indexOf('No. DE IDENTIFICACIÓN') : -1;
+            const cargoIdx = headers ? headers.indexOf('CARGO') : -1;
             // Función para normalizar texto
             function normalizarTexto(texto) {
                 return String(texto || '')
@@ -3016,27 +3027,36 @@
                     .trim();
             }
             empleados.forEach(empleado => {
-                const empleadoCard = document.createElement('div');
-                empleadoCard.className = `empleado-card ${empleado.estado?.toLowerCase().replace(' ', '-') || 'sin-revision'}`;
-                empleadoCard.innerHTML = `
-                    <div class="empleado-nombre">${empleado.nombres_y_apellidos || 'Sin nombre'}</div>
-                    <div class="empleado-info">
-                        <span>Documento: ${empleado.no_de_identificacion || 'N/A'}</span>
-                        <span>Cargo: ${empleado.cargo || 'N/A'}</span>
-                    </div>
-                    <div class="empleado-estado">Estado: ${empleado.estado || 'SIN REVISION'}</div>
-                `;
-                // Solo permitir interacción con empleados recientes
+                // Buscar el índice de la fila en sharedData.excelData usando comparación normalizada
+                let rowIndex = -1;
                 if (esReciente && nombreIdx !== -1 && docIdx !== -1) {
-                    // Buscar el índice de la fila en sharedData.excelData usando comparación normalizada
-                    const rowIndex = sharedData.excelData.findIndex((row, idx) =>
+                    rowIndex = sharedData.excelData.findIndex((row, idx) =>
                         idx > 0 && row &&
                         normalizarTexto(row[nombreIdx]) === normalizarTexto(empleado.nombres_y_apellidos) &&
                         normalizarTexto(row[docIdx]) === normalizarTexto(empleado.no_de_identificacion)
                     );
-                    if (rowIndex >= 0) {
-                        empleadoCard.onclick = () => showEmpleadoDetails(rowIndex);
-                    }
+                }
+                // Si se encuentra la fila, usar los datos del Excel
+                let nombre = empleado.nombres_y_apellidos || 'Sin nombre';
+                let documento = empleado.no_de_identificacion || 'N/A';
+                let cargo = empleado.cargo || 'N/A';
+                if (rowIndex >= 0 && sharedData.excelData[rowIndex]) {
+                    nombre = sharedData.excelData[rowIndex][nombreIdx] || 'Sin nombre';
+                    documento = sharedData.excelData[rowIndex][docIdx] || 'N/A';
+                    cargo = cargoIdx !== -1 ? (sharedData.excelData[rowIndex][cargoIdx] || 'N/A') : 'N/A';
+                }
+                const empleadoCard = document.createElement('div');
+                empleadoCard.className = `empleado-card ${empleado.estado?.toLowerCase().replace(' ', '-') || 'sin-revision'}`;
+                empleadoCard.innerHTML = `
+                    <div class="empleado-nombre">${nombre}</div>
+                    <div class="empleado-info">
+                        <span>Documento: ${documento}</span>
+                        <span>Cargo: ${cargo}</span>
+                    </div>
+                    <div class="empleado-estado">Estado: ${empleado.estado || 'SIN REVISION'}</div>
+                `;
+                if (rowIndex >= 0) {
+                    empleadoCard.onclick = () => showEmpleadoDetails(rowIndex);
                 }
                 contenedor.appendChild(empleadoCard);
             });
