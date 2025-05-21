@@ -1745,7 +1745,7 @@
                     'SALARIO LETRAS': 'salario_letras',
                     'CLAUSURA TERCERA': 'clausura_tercera',
                     'HORARIO LABORAL': 'horario_laboral',
-                    'PARAGRAFO DIRECCION MANEJO Y CONFIANZA': 'paragrafo_direccion_manejo_y_confianza',
+                    'PARAGRAFO DIRECCIÓN MANEJO Y CONFIANZA': 'paragrafo_direccion_manejo_y_confianza',
                     'FECHA FIRMA CONTRATO': 'fecha_firma_contrato',
                     'NIVEL DE ESTUDIO': 'nivel_de_estudio',
                     'TITULO': 'titulo',
@@ -2428,92 +2428,99 @@
 
         // Función para cargar y actualizar datos del Excel en la tabla empleados
         async function cargarExcelASupabase(excelData) {
+            // Función para normalizar encabezados
+            function normalizarEncabezado(texto) {
+                return String(texto)
+                    .toUpperCase()
+                    .replace(/[ÁÀÄÂ]/g, 'A')
+                    .replace(/[ÉÈËÊ]/g, 'E')
+                    .replace(/[ÍÌÏÎ]/g, 'I')
+                    .replace(/[ÓÒÖÔ]/g, 'O')
+                    .replace(/[ÚÙÜÛ]/g, 'U')
+                    .replace(/Ñ/g, 'N')
+                    .replace(/[^A-Z0-9]/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+            }
+            // Mapeo robusto: claves normalizadas
             const mapeoColumnas = {
                 'ITEM': 'item',
                 'TIPO CONTRATO': 'tipo_contrato',
                 'NOMBRES Y APELLIDOS': 'nombres_y_apellidos',
-                'TIPO DOCUMENTO IDENTIFICACIÓN': 'tipo_documento_identificacion',
-                'No. DE IDENTIFICACIÓN': 'no_de_identificacion',
-                'LUGAR EXPEDICIÓN DOCUMENTO IDENTIFICACIÓN': 'lugar_expedicion_documento_identificacion',
+                'TIPO DOCUMENTO IDENTIFICACION': 'tipo_documento_identificacion',
+                'NO DE IDENTIFICACION': 'no_de_identificacion',
+                'LUGAR EXPEDICION DOCUMENTO IDENTIFICACION': 'lugar_expedicion_documento_identificacion',
                 'FECHA DE NACIMIENTO': 'fecha_de_nacimiento',
                 'LUGAR DE NACIMIENTO': 'lugar_de_nacimiento',
                 'NACIONALIDAD': 'nacionalidad',
-                'DIRECCIÓN DE RESIDENCIA': 'direccion_de_residencia',
-                'MUNICIPIO/DEPARTAMENTO RESIDENCIA': 'municipio_departamento_residencia',
-                'TELÉFONO/CELULAR': 'telefono_celular',
-                'CORREO ELECTRÓNICO': 'correo_electronico',
+                'DIRECCION DE RESIDENCIA': 'direccion_de_residencia',
+                'MUNICIPIO DEPARTAMENTO RESIDENCIA': 'municipio_departamento_residencia',
+                'TELEFONO CELULAR': 'telefono_celular',
+                'CORREO ELECTRONICO': 'correo_electronico',
                 'CARGO': 'cargo',
-                'CATEGORÍA/TABLA': 'categoria_tabla',
-                'PROYECTO Y/O ORDEN DE SERVICIO': 'proyecto_y_o_orden_de_servicio',
+                'CATEGORIA TABLA': 'categoria_tabla',
+                'PROYECTO Y O ORDEN DE SERVICIO': 'proyecto_y_o_orden_de_servicio',
                 'OBRA O LABOR CONTRATADA': 'obra_o_labor_contratada',
-                'LUGAR DE EJECUCIÓN': 'lugar_de_ejecucion',
+                'LUGAR DE EJECUCION': 'lugar_de_ejecucion',
                 'FECHA DE INICIO': 'fecha_de_inicio',
                 'PERIODO DE PRUEBA': 'periodo_de_prueba',
-                'FECHA DE TERMINACIÓN': 'fecha_terminacion',
-                'SALARIO #': 'salario',
-                'SALARIO EN LETRAS': 'salario_letras',
+                'FECHA TERMINACION': 'fecha_terminacion',
+                'SALARIO': 'salario',
+                'SALARIO LETRAS': 'salario_letras',
                 'CLAUSURA TERCERA': 'clausura_tercera',
                 'HORARIO LABORAL': 'horario_laboral',
                 'PARAGRAFO DIRECCIÓN MANEJO Y CONFIANZA': 'paragrafo_direccion_manejo_y_confianza',
-                'FECHA DE FIRMA DEL CONTRATO': 'fecha_firma_contrato',
+                'FECHA FIRMA CONTRATO': 'fecha_firma_contrato',
                 'NIVEL DE ESTUDIO': 'nivel_de_estudio',
-                'TÍTULO': 'titulo',
-                'TARJETA DE LICENCIA/MATRÍCULA/CÓPPIA': 'tarjeta_licencia_matricula_copnia',
-                'COMPETENCIAS TÉCNICAS (CUMPLE/NO CUMPLE/NO APLICA)': 'competencias_tecnicas_cumple_no_cumple_no_aplica',
+                'TITULO': 'titulo',
+                'TARJETA LICENCIA MATRICULA COPNIA': 'tarjeta_licencia_matricula_copnia',
+                'COMPETENCIAS TECNICAS CUMPLE NO CUMPLE NO APLICA': 'competencias_tecnicas_cumple_no_cumple_no_aplica',
                 'CURSOS': 'cursos',
-                'LICENCIA DE CONDUCCIÓN': 'licencia_de_conduccion',
+                'LICENCIA DE CONDUCCION': 'licencia_de_conduccion',
                 'EXPERIENCIA LABORAL': 'experiencia_laboral',
-                'SIG_GR_F_42_SOLICITUD DE PERSONAL': 'sig_gr_f_42_solicitud_de_personal',
+                'SIG GR F 42 SOLICITUD DE PERSONAL': 'sig_gr_f_42_solicitud_de_personal',
                 'CERTIFICADO DE RESIDENCIA': 'certificado_de_residencia',
-                'POSTULACIÓN APE': 'postulacion_ape',
-                'APROBACIÓN SSTA CARGOS': 'aprobacion_ssta_cargos',
-                'APROBACIÓN SSTA EMO': 'aprobacion_ssta_emo',
-                'SAGRILFT': 'sagrilaft',
+                'POSTULACION APE': 'postulacion_ape',
+                'APROBACION SSTA CARGOS': 'aprobacion_ssta_cargos',
+                'APROBACION SSTA EMO': 'aprobacion_ssta_emo',
+                'SAGRILAFT': 'sagrilaft',
                 'ARL': 'arl',
                 'EPS': 'eps',
                 'AFP': 'afp',
                 'CESANTIAS': 'cesantias',
                 'CUENTA BANCARIA': 'cuenta_bancaria',
                 'BANCO': 'banco',
-                'FECHA DE EXPEDICIÓN DEL DOCUMENTO DE IDENTIFICACIÓN': 'fecha_expedicion_doc_identidad',
+                'FECHA EXPEDICION DOC IDENTIDAD': 'fecha_expedicion_doc_identidad',
                 'SEXO': 'sexo',
                 'ESTADO CIVIL': 'estado_civil',
-                'CONFIRMACIÓN CONTRATACIÓN GERENCIA OPERACIONES': 'confirmacion_contratacion_gerencia_operaciones',
+                'CONFIRMACION CONTRATACION GERENCIA OPERACIONES': 'confirmacion_contratacion_gerencia_operaciones',
                 'OBSERVACIONES': 'observaciones',
                 'ESTADO': 'estado',
-                'INDUCCIÓN': 'sig_gr_f_06_induccion',
-                'FUNCIONES': 'sig_gr_f_31_funciones',
-                'INFORMACIÓN TRABAJADOR': 'sig_gr_f_27_informacion_trabajador',
-                'DOTACIÓN Y EPPS': 'sig_gr_f_04_dotacion_y_epps',
+                'SIG GR F 06 INDUCCION': 'sig_gr_f_06_induccion',
+                'SIG GR F 31 FUNCIONES': 'sig_gr_f_31_funciones',
+                'SIG GR F 27 INFORMACION TRABAJADOR': 'sig_gr_f_27_informacion_trabajador',
+                'SIG GR F 04 DOTACION Y EPPS': 'sig_gr_f_04_dotacion_y_epps',
                 'FORMATO MANEJO DE IMAGEN': 'formato_manejo_de_imagen',
-                'AUTORIZACIÓN MEDIOS ELECTRÓNICOS': 'autorizacion_medios_electronicos',
-                'ENTREVISTA': 'sig_gr_f_01_entrevista',
-                'ASIGNACIÓN DE ROL': 'sig_gr_f_03_asignacion_rol',
-                'HV CONDUCTORES': 'sig_gr_f_37_hv_conductores',
-                'PERFIL DEL CARGO, FUNCIONES Y RESPONSABILIDADES': 'sig_gr_f_61_perfil_del_cargo_funciones_y_responsabilidades',
-                'HV DIGITAL COMPLETA SEGÚN SIG_GR_F_32': 'hv_digital_completa_segun_sig_gr_f_32'
+                'AUTORIZACION MEDIOS ELECTRONICOS': 'autorizacion_medios_electronicos',
+                'SIG GR F 01 ENTREVISTA': 'sig_gr_f_01_entrevista',
+                'SIG GR F 03 ASIGNACION ROL': 'sig_gr_f_03_asignacion_rol',
+                'SIG GR F 37 HV CONDUCTORES': 'sig_gr_f_37_hv_conductores',
+                'SIG GR F 61 PERFIL DEL CARGO FUNCIONES Y RESPONSABILIDADES': 'sig_gr_f_61_perfil_del_cargo_funciones_y_responsabilidades',
+                'HV DIGITAL COMPLETA SEGUN SIG GR F 32': 'hv_digital_completa_segun_sig_gr_f_32',
+                'PDF ASOCIADO': 'pdf_asociado'
             };
             const columnasTabla = Object.values(mapeoColumnas);
             const headers = excelData[0];
+            // Crear un mapeo de encabezados normalizados a índice
+            const encabezadosNorm = headers.map(h => normalizarEncabezado(h));
             for (let i = 1; i < excelData.length; i++) {
                 const fila = excelData[i];
                 // Filtrar filas vacías o con solo celdas vacías
                 if (!fila || fila.every(cell => !cell || cell.toString().trim() === '')) continue;
                 const registro = {};
                 headers.forEach((col, idx) => {
-                    // Normalizar encabezado
-                    let key = col
-                        .toLowerCase()
-                        .replace(/[áàäâ]/g, 'a')
-                        .replace(/[éèëê]/g, 'e')
-                        .replace(/[íìïî]/g, 'i')
-                        .replace(/[óòöô]/g, 'o')
-                        .replace(/[úùüû]/g, 'u')
-                        .replace(/ñ/g, 'n')
-                        .replace(/[^a-z0-9_ ]/g, '')
-                        .replace(/\s+/g, '_')
-                        .trim();
-                    const columnaSupabase = mapeoColumnas[key];
+                    const colNorm = normalizarEncabezado(col);
+                    const columnaSupabase = mapeoColumnas[colNorm];
                     if (columnaSupabase) {
                         registro[columnaSupabase] = fila[idx] || null;
                     }
