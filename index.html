@@ -180,7 +180,7 @@
                 <div style="flex: 1; min-width: 320px; max-width: 400px; display: flex; flex-direction: column; gap: 20px;">
                     <!-- Autorización de Documento -->
                 <div class="empleados-section">
-                    <h2>Autorización de Documento</h2>
+                    <h2>Autorización Nuevos Ingresos</h2>
                     <div class="search-container">
                         <select id="confirmador-search-input-empleados" 
                                class="search-input estado-select" 
@@ -198,7 +198,7 @@
                 </div>
                     <!-- Histórico debajo -->
                     <div class="empleados-section">
-                        <h2>Histórico de Empleados</h2>
+                        <h2>Histórico Contratación</h2>
                         <div class="search-container">
                             <input type="text" 
                                    id="historico-search-input" 
@@ -207,6 +207,9 @@
                                    oninput="searchHistoricoEmpleados()">
                         </div>
                         <div id="historico-list" class="empleados-list"></div>
+                        <button onclick="downloadExcel()" class="download-btn" style="width: 100%; margin-top: 15px; padding: 10px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Descargar Excel
+                        </button>
                     </div>
                 </div>
                 <!-- Columna derecha: Detalles -->
@@ -247,6 +250,31 @@
                             <button onclick="firmarTodosPDFs()" class="firma-btn">Firmar Todos los Documentos</button>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard para el Administrador -->
+        <div class="dashboard" id="admin-dashboard" style="display: none;">
+            <div class="header">
+                <h1>Panel de Control - Administrador</h1>
+                <div>
+                    <span class="user-info">Bienvenido, Administrador</span>
+                    <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
+                    <button class="logout-btn" style="background: #1976d2; margin-left: 10px;" onclick="abrirModalCambioContrasena()">Cambiar contraseña</button>
+                </div>
+            </div>
+
+            <div class="tab-buttons">
+                <button onclick="cambiarRol('RH')">Modo RH</button>
+                <button onclick="cambiarRol('DirectoraRH')">Modo Directora RH</button>
+            </div>
+
+            <div class="admin-content">
+                <div class="info-panel">
+                    <h3>Información del Sistema</h3>
+                    <p>Rol actual: <span id="current-role">Administrador</span></p>
+                    <p>Email: <span id="admin-email"></span></p>
                 </div>
             </div>
         </div>
@@ -1654,6 +1682,40 @@
                     return;
                 }
 
+                // Función para formatear fechas
+                function formatearFechaDDMMAAAA(fecha) {
+                    if (!fecha) return '';
+                    
+                    // Si ya está en formato DD/MM/AAAA
+                    if (/^\d{2}\/\d{2}\/\d{4}$/.test(fecha)) return fecha;
+                    
+                    // Si está en formato YYYY-MM-DD
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+                        const [year, month, day] = fecha.split('-');
+                        return `${day}/${month}/${year}`;
+                    }
+                    
+                    // Si es un número de Excel (fecha serial)
+                    if (!isNaN(fecha)) {
+                        const date = new Date((fecha - 25569) * 86400 * 1000);
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const year = date.getFullYear();
+                        return `${day}/${month}/${year}`;
+                    }
+                    
+                    // Si es una fecha válida en cualquier otro formato
+                    const date = new Date(fecha);
+                    if (!isNaN(date.getTime())) {
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const year = date.getFullYear();
+                        return `${day}/${month}/${year}`;
+                    }
+                    
+                    return fecha; // Si no se puede convertir, devolver el valor original
+                }
+
                 // Definir el orden de las columnas según el Excel original
                 const columnOrder = [
                     'item',
@@ -1721,6 +1783,15 @@
                     'hv_digital_completa_segun_sig_gr_f_32'
                 ];
 
+                // Lista de campos que contienen fechas
+                const camposFecha = [
+                    'fecha_de_nacimiento',
+                    'fecha_de_inicio',
+                    'fecha_terminacion',
+                    'fecha_firma_contrato',
+                    'fecha_expedicion_doc_identidad'
+                ];
+
                 // Convertir los nombres de columnas a formato legible
                 const headers = columnOrder.map(col => {
                     return col
@@ -1731,9 +1802,16 @@
                         .toUpperCase();
                 });
 
-                // Preparar los datos en el orden correcto
+                // Preparar los datos en el orden correcto y formatear fechas
                 const rows = data.map(obj => 
-                    columnOrder.map(key => obj[key] || '')
+                    columnOrder.map(key => {
+                        const value = obj[key] || '';
+                        // Si el campo es una fecha, formatearlo
+                        if (camposFecha.includes(key)) {
+                            return formatearFechaDDMMAAAA(value);
+                        }
+                        return value;
+                    })
                 );
 
                 // Crear el libro de trabajo y la hoja
@@ -1908,14 +1986,15 @@
                 document.getElementById('login-form').style.display = 'none';
                 loginError.style.display = 'none';
 
-                if (currentUser.role === 'RH') {
+                if (currentUser.role === 'admin') {
+                    document.getElementById('admin-dashboard').style.display = 'block';
+                } else if (currentUser.role === 'RH') {
                     document.getElementById('revisor-dashboard').style.display = 'block';
                     showTab('comparison-tab');
                     loadExistingData();
                 } else if (currentUser.role === 'DirectoraRH') {
                     const confirmadorDashboard = document.getElementById('confirmador-dashboard');
                     confirmadorDashboard.style.display = 'block';
-                    await new Promise(resolve => setTimeout(resolve, 100));
                     await loadConfirmadorData();
                     initRealtimeSubscription();
                     await cargarFirmaDirectora();
@@ -1927,9 +2006,6 @@
                 const loginError = document.getElementById('login-error');
                 loginError.textContent = 'Error al iniciar sesión. Por favor, intente nuevamente.';
                 loginError.style.display = 'block';
-                document.getElementById('login-form').style.display = 'block';
-                document.getElementById('revisor-dashboard').style.display = 'none';
-                document.getElementById('confirmador-dashboard').style.display = 'none';
             }
         }
 
@@ -1947,6 +2023,7 @@
             } finally {
                 currentUser = null;
                 document.getElementById('login-form').style.display = 'block';
+                document.getElementById('admin-dashboard').style.display = 'none';
                 document.getElementById('revisor-dashboard').style.display = 'none';
                 document.getElementById('confirmador-dashboard').style.display = 'none';
                 document.getElementById('username').value = '';
@@ -2748,6 +2825,35 @@
             document.querySelectorAll('.signature-placeholder').forEach(placeholder => {
                 placeholder.style.display = 'none';
             });
+        }
+
+        // Función para cambiar entre roles
+        async function cambiarRol(nuevoRol) {
+            if (!currentUser || currentUser.role !== 'admin') {
+                alert('Solo el administrador puede cambiar roles');
+                return;
+            }
+
+            // Ocultar todos los dashboards
+            document.getElementById('admin-dashboard').style.display = 'none';
+            document.getElementById('revisor-dashboard').style.display = 'none';
+            document.getElementById('confirmador-dashboard').style.display = 'none';
+
+            // Mostrar el dashboard correspondiente
+            if (nuevoRol === 'RH') {
+                document.getElementById('revisor-dashboard').style.display = 'block';
+                showTab('comparison-tab');
+                loadExistingData();
+            } else if (nuevoRol === 'DirectoraRH') {
+                const confirmadorDashboard = document.getElementById('confirmador-dashboard');
+                confirmadorDashboard.style.display = 'block';
+                await loadConfirmadorData();
+                initRealtimeSubscription();
+                await cargarFirmaDirectora();
+            }
+
+            // Actualizar información en el panel de admin
+            document.getElementById('current-role').textContent = nuevoRol;
         }
     </script>
 
