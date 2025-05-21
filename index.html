@@ -182,13 +182,17 @@
                 <div class="empleados-section">
                     <h2>Autorización Nuevos Ingresos</h2>
                     <div class="search-container">
-                        <input type="text" 
-                               id="confirmador-search-input-empleados" 
-                               class="search-input" 
-                               placeholder="Buscar empleado..."
-                               oninput="searchConfirmadorRowsEmpleados()">
+                        <select id="confirmador-search-input-empleados" 
+                               class="search-input estado-select" 
+                               multiple
+                               size="4"
+                               onchange="searchConfirmadorRowsEmpleados()">
+                            <option value="SIN REVISION">Sin Revisión</option>
+                            <option value="PENDIENTE">Pendiente</option>
+                            <option value="REVISADO">Revisado</option>
+                            <option value="">Todos los estados</option>
+                        </select>
                     </div>
-                    <!-- Filtro de estados eliminado, solo se muestran empleados con estado permitido -->
                     <div id="no-docs-message" style="display: none; padding: 15px; background: #fff3e0; border-radius: 4px; margin: 10px 0;">
                         No hay documentos para autorizar.
                     </div>
@@ -1698,7 +1702,7 @@
                 const header = headers[col];
 
                 // Actualizar el valor en sharedData
-                sharedData.excelData[row][col] = value;
+                        sharedData.excelData[row][col] = value;
 
                 // Función para normalizar encabezados
                 function normalizarTexto(texto) {
@@ -2892,40 +2896,129 @@
 
         // ... existing code ...
         // Función para buscar empleados (Confirmador)
-        function searchConfirmadorRowsEmpleados() {
+        async function searchConfirmadorRowsEmpleados() {
             try {
-                const searchInput = document.getElementById('confirmador-search-input-empleados');
-                const searchTerm = (searchInput?.value || '').toLowerCase().trim();
+                const estadoSelect = document.getElementById('confirmador-search-input-empleados');
+                if (!estadoSelect) {
+                    console.error('No se encontró el selector de estado');
+                    return;
+                }
+                // Obtener todos los estados seleccionados
+                const estadosSeleccionados = Array.from(estadoSelect.selectedOptions).map(opt => opt.value);
+                const todosSeleccionados = estadosSeleccionados.includes("");
+
                 const empleadosList = document.getElementById('empleados-list');
-                if (!empleadosList) return;
-                // Obtener todos los empleados de la base de datos
-                supabase.from('empleados').select('*').then(({ data: empleadosData, error }) => {
-                    if (error || !empleadosData) {
-                        empleadosList.innerHTML = '<p>Error al cargar empleados</p>';
-                        return;
+                if (!empleadosList) {
+                    console.error('No se encontró la lista de empleados');
+                    return;
+                }
+
+                // Obtener empleados desde Supabase
+                const { data: empleadosData, error } = await supabase.from('empleados').select('*');
+                if (error) {
+                    empleadosList.innerHTML = '<p>Error al cargar empleados</p>';
+                    return;
+                }
+                if (!empleadosData || empleadosData.length === 0) {
+                    empleadosList.innerHTML = '<p>No hay empleados disponibles</p>';
+                    return;
+                }
+
+                empleadosList.innerHTML = '';
+                let encontrados = false;
+                empleadosData.forEach(empleado => {
+                    const estado = (empleado.estado || 'SIN REVISION').toUpperCase();
+                    if (todosSeleccionados || estadosSeleccionados.includes(estado)) {
+                        encontrados = true;
+                        const empleadoCard = document.createElement('div');
+                        empleadoCard.className = `empleado-card ${estado.toLowerCase().replace(' ', '-')}`;
+                        empleadoCard.innerHTML = `
+                            <div class="empleado-nombre">${empleado.nombres_y_apellidos || 'Sin nombre'}</div>
+                            <div class="empleado-info">
+                                <span>Documento: ${empleado.no_de_identificacion || 'N/A'}</span>
+                                <span>Cargo: ${empleado.cargo || 'N/A'}</span>
+                            </div>
+                            <div class="empleado-estado">Estado: ${estado}</div>
+                        `;
+                        empleadoCard.onclick = () => showEmpleadoDetailsById(empleado.no_de_identificacion);
+                        empleadosList.appendChild(empleadoCard);
                     }
-                    // Filtrar solo los de estado REVISADO
-                    const revisados = empleadosData.filter(emp => (emp.estado || '').toUpperCase() === 'REVISADO');
-                    // Si hay término de búsqueda, filtrar por nombre, documento o cargo
-                    const filtrados = revisados.filter(emp => {
-                        const nombre = (emp.nombres_y_apellidos || '').toLowerCase();
-                        const doc = (emp.no_de_identificacion || '').toLowerCase();
-                        const cargo = (emp.cargo || '').toLowerCase();
-                        return (
-                            searchTerm === '' ||
-                            nombre.includes(searchTerm) ||
-                            doc.includes(searchTerm) ||
-                            cargo.includes(searchTerm)
-                        );
-                    });
-                    mostrarEmpleadosEnLista(filtrados, empleadosList, true);
                 });
+                if (!encontrados) {
+                    empleadosList.innerHTML = '<p>No se encontraron empleados con el estado seleccionado</p>';
+                }
             } catch (error) {
                 console.error('Error en la búsqueda:', error);
+                alert('Error al filtrar empleados: ' + error.message);
             }
         }
-        // ... existing code ...
-        // Llama a searchConfirmadorRowsEmpleados() al cargar la sección para que siempre muestre los revisados
+
+        // Nueva función para mostrar detalles por id
+        async function showEmpleadoDetailsById(noIdentificacion) {
+            try {
+                const { data: empleado, error } = await supabase.from('empleados').select('*').eq('no_de_identificacion', noIdentificacion).single();
+                if (error || !empleado) {
+                    alert('No se encontró el empleado');
+                    return;
+                }
+                // Mostrar el contenedor de detalles
+                const detallesContainer = document.getElementById('empleado-details');
+                detallesContainer.classList.add('active');
+                // Mostrar información del empleado
+                const infoGrid = document.getElementById('info-grid');
+                infoGrid.innerHTML = '';
+                Object.keys(empleado).forEach(key => {
+                    const infoItem = document.createElement('div');
+                    infoItem.className = 'info-item';
+                    // Normalizar el rol para evitar problemas de mayúsculas/minúsculas
+                    const esDirectoraRH = currentUser && String(currentUser.role).toLowerCase() === 'directorarh'.toLowerCase();
+                    if (key === 'estado' && esDirectoraRH) {
+                        // Si es DirectoraRH, mostrar un select editable
+                        infoItem.innerHTML = `
+                            <label>Estado</label>
+                            <select id="select-estado-empleado" onchange="window.actualizarEstadoEmpleadoDirectoraRH('${empleado.no_de_identificacion}', this.value)">
+                                <option value="SIN REVISION" ${empleado.estado === 'SIN REVISION' ? 'selected' : ''}>Sin Revisión</option>
+                                <option value="PENDIENTE" ${empleado.estado === 'PENDIENTE' ? 'selected' : ''}>Pendiente</option>
+                                <option value="REVISADO" ${empleado.estado === 'REVISADO' ? 'selected' : ''}>Revisado</option>
+                                <option value="AUTORIZADO" ${empleado.estado === 'AUTORIZADO' ? 'selected' : ''}>Autorizado</option>
+                            </select>
+                        `;
+                    } else {
+                        infoItem.innerHTML = `
+                            <label>${key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</label>
+                            <span>${empleado[key] || ''}</span>
+                        `;
+                    }
+                    infoGrid.appendChild(infoItem);
+                });
+                // PDFs asociados (si aplica)
+                const pdfGrid = document.getElementById('pdf-grid');
+                if (pdfGrid) pdfGrid.innerHTML = '';
+            } catch (error) {
+                alert('Error al mostrar detalles del empleado');
+            }
+        }
+
+        // Nueva función para actualizar el estado desde el select
+        async function actualizarEstadoEmpleadoDirectoraRH(noIdentificacion, nuevoEstado) {
+            try {
+                const { error } = await supabase.from('empleados').update({ estado: nuevoEstado }).eq('no_de_identificacion', noIdentificacion);
+                if (error) {
+                    alert('Error al actualizar el estado: ' + error.message);
+                } else {
+                    alert('Estado actualizado correctamente');
+                    // Refrescar detalles y la lista
+                    showEmpleadoDetailsById(noIdentificacion);
+                    if (typeof searchConfirmadorRowsEmpleados === 'function') {
+                        searchConfirmadorRowsEmpleados();
+                    }
+                }
+            } catch (error) {
+                alert('Error al actualizar el estado');
+            }
+        }
+        // Hacer la función global para el onchange del select
+        window.actualizarEstadoEmpleadoDirectoraRH = actualizarEstadoEmpleadoDirectoraRH;
         // ... existing code ...
 
         // --- En la función loadExistingData, asegúrate de que siempre lea de la tabla 'empleados' y actualice la vista ---
@@ -2969,24 +3062,6 @@
                 contenedor.innerHTML = '<p>No hay empleados para mostrar</p>';
                 return;
             }
-            // Obtener headers para buscar índices
-            const headers = sharedData.excelData ? sharedData.excelData[0] : [];
-            const nombreIdx = headers ? headers.indexOf('NOMBRES Y APELLIDOS') : -1;
-            const docIdx = headers ? headers.indexOf('No. DE IDENTIFICACIÓN') : -1;
-            // Función para normalizar texto
-            function normalizarTexto(texto) {
-                return String(texto || '')
-                    .toUpperCase()
-                    .replace(/[ÁÀÄÂ]/g, 'A')
-                    .replace(/[ÉÈËÊ]/g, 'E')
-                    .replace(/[ÍÌÏÎ]/g, 'I')
-                    .replace(/[ÓÒÖÔ]/g, 'O')
-                    .replace(/[ÚÙÜÛ]/g, 'U')
-                    .replace(/Ñ/g, 'N')
-                    .replace(/[^A-Z0-9]/g, '')
-                    .replace(/\s+/g, '')
-                    .trim();
-            }
             empleados.forEach(empleado => {
                 const empleadoCard = document.createElement('div');
                 empleadoCard.className = `empleado-card ${empleado.estado?.toLowerCase().replace(' ', '-') || 'sin-revision'}`;
@@ -2998,40 +3073,12 @@
                     </div>
                     <div class="empleado-estado">Estado: ${empleado.estado || 'SIN REVISION'}</div>
                 `;
-                if (esReciente && nombreIdx !== -1 && docIdx !== -1) {
-                    // Buscar el índice de la fila en sharedData.excelData usando comparación normalizada
-                    const rowIndex = sharedData.excelData.findIndex((row, idx) =>
-                        idx > 0 && row &&
-                        normalizarTexto(row[nombreIdx]) === normalizarTexto(empleado.nombres_y_apellidos) &&
-                        normalizarTexto(row[docIdx]) === normalizarTexto(empleado.no_de_identificacion)
-                    );
-                    if (rowIndex >= 0) {
-                        empleadoCard.onclick = () => showEmpleadoDetails(rowIndex);
-                    } else {
-                        // Si no se encuentra, mostrar detalles usando el objeto empleado
-                        empleadoCard.onclick = () => mostrarDetallesDesdeObjetoEmpleado(empleado);
-                    }
+                // Solo permitir interacción con empleados recientes
+                if (esReciente) {
+                    empleadoCard.onclick = () => showEmpleadoDetails(empleado);
                 }
                 contenedor.appendChild(empleadoCard);
             });
-        }
-
-        // Nueva función para mostrar detalles desde el objeto empleado de Supabase
-        function mostrarDetallesDesdeObjetoEmpleado(empleado) {
-            const detallesContainer = document.getElementById('empleado-details');
-            detallesContainer.classList.add('active');
-            const infoGrid = document.getElementById('info-grid');
-            infoGrid.innerHTML = '';
-            // Mostrar todos los campos relevantes del objeto empleado
-            for (const key in empleado) {
-                if (!empleado.hasOwnProperty(key)) continue;
-                const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                const value = empleado[key] || '';
-                const infoItem = document.createElement('div');
-                infoItem.className = 'info-item';
-                infoItem.innerHTML = `<label>${label}</label><span>${value}</span>`;
-                infoGrid.appendChild(infoItem);
-            }
         }
 
         // Función para cargar la firma de la DirectoraRH desde Supabase Storage (nombre fijo)
