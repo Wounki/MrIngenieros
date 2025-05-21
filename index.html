@@ -182,14 +182,11 @@
                 <div class="empleados-section">
                     <h2>Autorización Nuevos Ingresos</h2>
                     <div class="search-container">
-                        <select id="confirmador-search-input-empleados" 
-                               class="search-input estado-select" 
-                               onchange="searchConfirmadorRowsEmpleados()">
-                            <option value="">Todos los estados</option>
-                            <option value="SIN REVISION">Sin Revisión</option>
-                            <option value="PENDIENTE">Pendiente</option>
-                            <option value="REVISADO">Revisado</option>
-                        </select>
+                        <input type="text" 
+                               id="confirmador-search-input-empleados" 
+                               class="search-input" 
+                               placeholder="Buscar empleado..."
+                               oninput="searchConfirmadorRowsEmpleados()">
                     </div>
                     <!-- Filtro de estados eliminado, solo se muestran empleados con estado permitido -->
                     <div id="no-docs-message" style="display: none; padding: 15px; background: #fff3e0; border-radius: 4px; margin: 10px 0;">
@@ -2897,73 +2894,38 @@
         // Función para buscar empleados (Confirmador)
         function searchConfirmadorRowsEmpleados() {
             try {
-                const estadoSelect = document.getElementById('confirmador-search-input-empleados');
-                if (!estadoSelect) {
-                    console.error('No se encontró el selector de estado');
-                    return;
-                }
-
-                const estadoSeleccionado = estadoSelect.value;
+                const searchInput = document.getElementById('confirmador-search-input-empleados');
+                const searchTerm = (searchInput?.value || '').toLowerCase().trim();
                 const empleadosList = document.getElementById('empleados-list');
-                
-                if (!empleadosList) {
-                    console.error('No se encontró la lista de empleados');
-                    return;
-                }
-
-                if (!sharedData.excelData || !Array.isArray(sharedData.excelData) || sharedData.excelData.length <= 1) {
-                    console.log('No hay datos para buscar');
-                    empleadosList.innerHTML = '<p>No hay datos disponibles</p>';
-                    return;
-                }
-
-                empleadosList.innerHTML = '';
-                const headers = sharedData.excelData[0];
-                
-                // Índices de las columnas de búsqueda
-                const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
-                const documentoIndex = headers.indexOf('No. DE IDENTIFICACIÓN');
-                const estadoIndex = headers.indexOf('ESTADO');
-                const cargoIndex = headers.indexOf('CARGO');
-
-                let encontrados = false;
-
-                for (let i = 1; i < sharedData.excelData.length; i++) {
-                    const row = sharedData.excelData[i];
-                    if (!row) continue;
-
-                    const nombre = String(row[nombreIndex] || '');
-                    const documento = String(row[documentoIndex] || '');
-                    const cargo = String(row[cargoIndex] || '');
-                    const estado = row[estadoIndex] || 'SIN REVISION';
-
-                    // Filtrar por estado
-                    if (estadoSeleccionado === '' || estado === estadoSeleccionado) {
-                        encontrados = true;
-                        const empleadoCard = document.createElement('div');
-                        empleadoCard.className = `empleado-card ${estado.toLowerCase().replace(' ', '-')}`;
-                        empleadoCard.innerHTML = `
-                            <div class="empleado-nombre">${nombre || 'Sin nombre'}</div>
-                            <div class="empleado-info">
-                                <span>Documento: ${documento || 'N/A'}</span>
-                                <span>Cargo: ${cargo || 'N/A'}</span>
-                            </div>
-                            <div class="empleado-estado">Estado: ${estado}</div>
-                        `;
-                        empleadoCard.onclick = () => showEmpleadoDetails(i);
-                        empleadosList.appendChild(empleadoCard);
+                if (!empleadosList) return;
+                // Obtener todos los empleados de la base de datos
+                supabase.from('empleados').select('*').then(({ data: empleadosData, error }) => {
+                    if (error || !empleadosData) {
+                        empleadosList.innerHTML = '<p>Error al cargar empleados</p>';
+                        return;
                     }
-                }
-
-                if (!encontrados) {
-                    empleadosList.innerHTML = '<p>No se encontraron empleados con el estado seleccionado</p>';
-                }
-
+                    // Filtrar solo los de estado REVISADO
+                    const revisados = empleadosData.filter(emp => (emp.estado || '').toUpperCase() === 'REVISADO');
+                    // Si hay término de búsqueda, filtrar por nombre, documento o cargo
+                    const filtrados = revisados.filter(emp => {
+                        const nombre = (emp.nombres_y_apellidos || '').toLowerCase();
+                        const doc = (emp.no_de_identificacion || '').toLowerCase();
+                        const cargo = (emp.cargo || '').toLowerCase();
+                        return (
+                            searchTerm === '' ||
+                            nombre.includes(searchTerm) ||
+                            doc.includes(searchTerm) ||
+                            cargo.includes(searchTerm)
+                        );
+                    });
+                    mostrarEmpleadosEnLista(filtrados, empleadosList, true);
+                });
             } catch (error) {
                 console.error('Error en la búsqueda:', error);
-                alert('Error al filtrar empleados: ' + error.message);
             }
         }
+        // ... existing code ...
+        // Llama a searchConfirmadorRowsEmpleados() al cargar la sección para que siempre muestre los revisados
         // ... existing code ...
 
         // --- En la función loadExistingData, asegúrate de que siempre lea de la tabla 'empleados' y actualice la vista ---
@@ -3011,7 +2973,6 @@
             const headers = sharedData.excelData ? sharedData.excelData[0] : [];
             const nombreIdx = headers ? headers.indexOf('NOMBRES Y APELLIDOS') : -1;
             const docIdx = headers ? headers.indexOf('No. DE IDENTIFICACIÓN') : -1;
-            const cargoIdx = headers ? headers.indexOf('CARGO') : -1;
             // Función para normalizar texto
             function normalizarTexto(texto) {
                 return String(texto || '')
@@ -3027,39 +2988,50 @@
                     .trim();
             }
             empleados.forEach(empleado => {
-                // Buscar el índice de la fila en sharedData.excelData usando comparación normalizada
-                let rowIndex = -1;
+                const empleadoCard = document.createElement('div');
+                empleadoCard.className = `empleado-card ${empleado.estado?.toLowerCase().replace(' ', '-') || 'sin-revision'}`;
+                empleadoCard.innerHTML = `
+                    <div class="empleado-nombre">${empleado.nombres_y_apellidos || 'Sin nombre'}</div>
+                    <div class="empleado-info">
+                        <span>Documento: ${empleado.no_de_identificacion || 'N/A'}</span>
+                        <span>Cargo: ${empleado.cargo || 'N/A'}</span>
+                    </div>
+                    <div class="empleado-estado">Estado: ${empleado.estado || 'SIN REVISION'}</div>
+                `;
                 if (esReciente && nombreIdx !== -1 && docIdx !== -1) {
-                    rowIndex = sharedData.excelData.findIndex((row, idx) =>
+                    // Buscar el índice de la fila en sharedData.excelData usando comparación normalizada
+                    const rowIndex = sharedData.excelData.findIndex((row, idx) =>
                         idx > 0 && row &&
                         normalizarTexto(row[nombreIdx]) === normalizarTexto(empleado.nombres_y_apellidos) &&
                         normalizarTexto(row[docIdx]) === normalizarTexto(empleado.no_de_identificacion)
                     );
-                }
-                // Si se encuentra la fila, usar los datos del Excel
-                let nombre = empleado.nombres_y_apellidos || 'Sin nombre';
-                let documento = empleado.no_de_identificacion || 'N/A';
-                let cargo = empleado.cargo || 'N/A';
-                if (rowIndex >= 0 && sharedData.excelData[rowIndex]) {
-                    nombre = sharedData.excelData[rowIndex][nombreIdx] || 'Sin nombre';
-                    documento = sharedData.excelData[rowIndex][docIdx] || 'N/A';
-                    cargo = cargoIdx !== -1 ? (sharedData.excelData[rowIndex][cargoIdx] || 'N/A') : 'N/A';
-                }
-                const empleadoCard = document.createElement('div');
-                empleadoCard.className = `empleado-card ${empleado.estado?.toLowerCase().replace(' ', '-') || 'sin-revision'}`;
-                empleadoCard.innerHTML = `
-                    <div class="empleado-nombre">${nombre}</div>
-                    <div class="empleado-info">
-                        <span>Documento: ${documento}</span>
-                        <span>Cargo: ${cargo}</span>
-                    </div>
-                    <div class="empleado-estado">Estado: ${empleado.estado || 'SIN REVISION'}</div>
-                `;
-                if (rowIndex >= 0) {
-                    empleadoCard.onclick = () => showEmpleadoDetails(rowIndex);
+                    if (rowIndex >= 0) {
+                        empleadoCard.onclick = () => showEmpleadoDetails(rowIndex);
+                    } else {
+                        // Si no se encuentra, mostrar detalles usando el objeto empleado
+                        empleadoCard.onclick = () => mostrarDetallesDesdeObjetoEmpleado(empleado);
+                    }
                 }
                 contenedor.appendChild(empleadoCard);
             });
+        }
+
+        // Nueva función para mostrar detalles desde el objeto empleado de Supabase
+        function mostrarDetallesDesdeObjetoEmpleado(empleado) {
+            const detallesContainer = document.getElementById('empleado-details');
+            detallesContainer.classList.add('active');
+            const infoGrid = document.getElementById('info-grid');
+            infoGrid.innerHTML = '';
+            // Mostrar todos los campos relevantes del objeto empleado
+            for (const key in empleado) {
+                if (!empleado.hasOwnProperty(key)) continue;
+                const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                const value = empleado[key] || '';
+                const infoItem = document.createElement('div');
+                infoItem.className = 'info-item';
+                infoItem.innerHTML = `<label>${label}</label><span>${value}</span>`;
+                infoGrid.appendChild(infoItem);
+            }
         }
 
         // Función para cargar la firma de la DirectoraRH desde Supabase Storage (nombre fijo)
