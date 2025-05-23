@@ -2062,10 +2062,14 @@
                 // Preparar los datos en el orden correcto y formatear fechas
                 const rows = data.map(obj => 
                     columnOrder.map(key => {
-                        const value = obj[key] || '';
+                        let value = obj[key] || '';
                         // Si el campo es una fecha, formatearlo
                         if (camposFecha.includes(key)) {
                             return formatearFechaDDMMAAAA(value);
+                        }
+                        // Si es correo electrónico, eliminar todos los espacios
+                        if (key === 'correo_electronico') {
+                            return value.replace(/\s+/g, '').trim();
                         }
                         return value;
                     })
