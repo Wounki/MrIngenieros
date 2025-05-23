@@ -190,6 +190,7 @@
                             <option value="SIN REVISION">Sin Revisión</option>
                             <option value="PENDIENTE">Pendiente</option>
                             <option value="REVISADO">Revisado</option>
+                            <option value="AUTORIZADO">Autorizado</option>
                             <option value="">Todos los estados</option>
                         </select>
                     </div>
@@ -891,6 +892,21 @@
             // Actualizar el contador
             document.getElementById('pdf-count').textContent = files.length;
             
+            // Obtener índices de columnas relevantes
+            const headers = sharedData.excelData ? sharedData.excelData[0] : [];
+            let pdfAsociadoIndex = headers.indexOf('PDF_ASOCIADO');
+            const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
+            const docIndex = headers.indexOf('No. DE IDENTIFICACIÓN');
+            // Si la columna PDF_ASOCIADO no existe, la agregamos
+            if (pdfAsociadoIndex === -1 && headers.length > 0) {
+                headers.push('PDF_ASOCIADO');
+                pdfAsociadoIndex = headers.length - 1;
+                // Agregar la columna vacía a todas las filas
+                for (let i = 1; i < sharedData.excelData.length; i++) {
+                    sharedData.excelData[i][pdfAsociadoIndex] = '';
+                }
+            }
+            
             // Cargar cada PDF
             let loadedCount = 0;
             for (let i = 0; i < files.length; i++) {
@@ -901,6 +917,32 @@
                     return function(e) {
                         const pdfData = e.target.result; // Esto es un ArrayBuffer
                         sharedData.pdfs[file.name] = pdfData;
+                        
+                        // --- ASOCIACIÓN AUTOMÁTICA ---
+                        let asociado = false;
+                        if (sharedData.excelData && sharedData.excelData.length > 1) {
+                            for (let j = 1; j < sharedData.excelData.length; j++) {
+                                const row = sharedData.excelData[j];
+                                const doc = (row[docIndex] || '').toString();
+                                const nombre = (row[nombreIndex] || '').toLowerCase().replace(/\s+/g, '');
+                                // 1. Buscar por número de identificación
+                                if (doc && file.name.includes(doc)) {
+                                    row[pdfAsociadoIndex] = file.name;
+                                    asociado = true;
+                                    break;
+                                }
+                                // 2. Si no, buscar por nombre
+                                if (!asociado && nombre.length > 0) {
+                                    const nombreArchivo = file.name.toLowerCase().replace(/\s+/g, '');
+                                    if (nombreArchivo.includes(nombre)) {
+                                        row[pdfAsociadoIndex] = file.name;
+                                        asociado = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        // --- FIN ASOCIACIÓN ---
                         
                         // Crear miniatura
                         const thumbnail = document.createElement('div');
@@ -930,6 +972,7 @@
                             if (confirmadorDashboard && confirmadorDashboard.style.display === 'block') {
                                 loadConfirmadorData();
                             }
+                            alert('¡Carga finalizada! Los PDFs han sido asociados automáticamente a los empleados.');
                         }
                     };
                 })(file);
@@ -2593,34 +2636,31 @@
                     return;
                 }
 
-                // Verificar si hay datos de Excel
                 if (!sharedData.excelData || sharedData.excelData.length <= 1) {
                     alert('No hay datos de empleados disponibles.');
                     return;
                 }
 
-                // Obtener headers y encontrar índices relevantes
                 const headers = sharedData.excelData[0];
                 const nombreIndex = headers.indexOf('NOMBRES Y APELLIDOS');
                 const estadoIndex = headers.indexOf('ESTADO');
-                const pdfIndex = headers.indexOf('PDF_ASOCIADO');
 
                 if (nombreIndex === -1 || estadoIndex === -1) {
                     alert('No se encontraron las columnas necesarias en el Excel.');
                     return;
                 }
 
-                // Filtrar documentos autorizados
+                // Filtrar documentos autorizados por nombre de empleado en el nombre del PDF
                 const documentosAutorizados = [];
                 for (let i = 1; i < sharedData.excelData.length; i++) {
                     const row = sharedData.excelData[i];
                     if (row && row[estadoIndex] === 'AUTORIZADO') {
                         const nombreEmpleado = String(row[nombreIndex] || '').trim();
                         if (nombreEmpleado) {
-                            // Buscar PDF correspondiente
-                            const pdfEncontrado = Object.keys(sharedData.pdfs).find(filename => 
-                                filename.toLowerCase().includes('contrato') && 
-                                filename.toLowerCase().includes(nombreEmpleado.toLowerCase())
+                            // Normalizar nombre para buscar en el nombre del archivo
+                            const nombreNormalizado = normalizarTexto(nombreEmpleado).replace(/\s+/g, '');
+                            const pdfEncontrado = Object.keys(sharedData.pdfs).find(filename =>
+                                normalizarTexto(filename).replace(/\s+/g, '').includes(nombreNormalizado)
                             );
                             if (pdfEncontrado) {
                                 documentosAutorizados.push({
